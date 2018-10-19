@@ -21,5 +21,17 @@ config SHELL_BACKEND_SERIAL
 	help
 	  Enable serial backends.
 
+config SHELL_BACKEND_RTT
+	bool "Enable RTT backend."
+	select RTT_CONSOLE
+	help
+	  Enable RTT backend.
+
+config SHELL_BACKEND_RTT_IRQLOCK
+	bool "RTT backend uses IRQ Lock"
+	depends on SHELL_BACKEND_RTT
+	help
+	  RTT backend uses IRQ Lock instead of
+
 endif # SHELL_BACKENDS
 
