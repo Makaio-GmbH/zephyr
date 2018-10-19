@@ -106,4 +106,9 @@ foreach(target flash debug debugserver attach)
     ${comment}
     USES_TERMINAL
     )
+
+  if(target STREQUAL flash)
+    add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND nrfjprog -f nrf52 -r)
+  endif()
 endforeach()

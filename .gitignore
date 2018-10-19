@@ -39,10 +39,6 @@ tags
 .envrc
 .vscode
 hide-defaults-note
-
-# Tag files
-GPATH
-GRTAGS
-GTAGS
+cmake_ninja_wrapper.py
 .idea
 cmake-build-debug

@@ -27,10 +27,20 @@
 #define SHELL_MSG_TAB_OVERFLOWED	\
 	"Tab function: commands counter overflowed.\r\n"
 
+<<<<<<< HEAD
+#include <shell/shell.h>
+#ifdef CONFIG_RTT_CONSOLE
+#include <console/rtt_console.h>
+#endif
+#if defined(CONFIG_NATIVE_POSIX_CONSOLE)
+#include "drivers/console/native_posix_console.h"
+#endif
+=======
 #define SHELL_INIT_OPTION_PRINTER	(NULL)
 
 /* Initial cursor position is: (1, 1). */
 #define SHELL_INITIAL_CURS_POS		(1u)
+>>>>>>> 780c1c28eec19bb7d65ed103dcd65b7ae89dcbea
 
 static int shell_execute(const struct shell *shell);
 
@@ -1602,6 +1612,14 @@ static void help_options_print(const struct shell *shell,
 	 */
 	memset(shell->ctx->temp_buff, 0, longest_name + 1);
 
+<<<<<<< HEAD
+	/* Register console handler */
+	console_register_line_input(&avail_queue, &cmds_queue, completion);
+
+#ifdef CONFIG_RTT_CONSOLE
+	rtt_register_input(&avail_queue, &cmds_queue, completion);
+#endif
+=======
 	/* Formating and printing all available options (except -h, --help). */
 	for (size_t i = 0; i < opt_cnt; ++i) {
 		if (opt[i].optname_short) {
@@ -1618,6 +1636,7 @@ static void help_options_print(const struct shell *shell,
 		help_item_print(shell, shell->ctx->temp_buff, longest_name,
 				opt[i].optname_help);
 	}
+>>>>>>> 780c1c28eec19bb7d65ed103dcd65b7ae89dcbea
 }
 
 /* Function is printing command help, its subcommands name and subcommands
