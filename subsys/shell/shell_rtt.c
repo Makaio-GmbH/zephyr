@@ -19,9 +19,9 @@ static K_THREAD_STACK_DEFINE(rtt_rx_stack, 1024);
 
 static void shell_rtt_rx_process(struct shell_rtt *sh_rtt)
 {
-	unsigned int count;
+    u32_t count;
 #ifdef SHELL_BACKEND_RTT_IRQLOCK
-	unsigned int key;
+	u32_t key;
 #endif
 
 	while (true)
