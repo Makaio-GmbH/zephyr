@@ -7,6 +7,7 @@
 #include <shell/shell_rtt.h>
 #include <init.h>
 #include <rtt/SEGGER_RTT.h>
+#include <logging/sys_log.h>
 
 SHELL_RTT_DEFINE(shell_transport_rtt);
 SHELL_DEFINE(rtt_shell, "rtt:~$ ", &shell_transport_rtt, 10,
@@ -97,9 +98,9 @@ static int read(const struct shell_transport *transport,
 	struct shell_rtt *sh_rtt = (struct shell_rtt *)transport->ctx;
 
 	if (sh_rtt->rx_cnt) {
-		memcpy(data, sh_rtt->rx, 1);
+		memcpy(data, sh_rtt->rx, sh_rtt->rx_cnt);
+		*cnt = sh_rtt->rx_cnt;
         sh_rtt->rx_cnt = 0;
-		*cnt = 1;
 	} else {
 		*cnt = 0;
 	}

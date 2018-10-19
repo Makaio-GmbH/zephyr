@@ -36,7 +36,7 @@ At this point, the following transport layers are implemented:
 See the :ref:`shell_api` documentation for more information.
 
 Connecting to Segger RTT via TCP (on macOS, for example)
-=================
+========================================================
 
 On macOS JLinkRTTClient won't let you enter input. Instead, please use following procedure:
 * Open up a first Terminal window and enter:

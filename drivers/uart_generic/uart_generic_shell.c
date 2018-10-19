@@ -20,7 +20,6 @@
 
 #include <drivers/generic_uart/generic_uart_drv.h>
 
-#define UART_SHELL_MODULE "uart"
 int uart_shell_selected_device = 0;
 
 int uart_shell_cmd_list(int argc, char *argv[])
@@ -121,9 +120,9 @@ int uart_shell_cmd_send(int argc, char *argv[])
 	return 0;
 }
 
-
+/*
 static struct shell_cmd uart_commands[] = {
-	/* Keep the commands in alphabetical order */
+
     { "device", uart_shell_cmd_select, "\n\tSelect device at <index>" },
 	{ "list", uart_shell_cmd_list, "\n\tList registered devices" },
 	{ "send", uart_shell_cmd_send,
@@ -133,3 +132,14 @@ static struct shell_cmd uart_commands[] = {
 };
 
 SHELL_REGISTER(UART_SHELL_MODULE, uart_commands);
+*/
+
+SHELL_CREATE_STATIC_SUBCMD_SET(sub_generic_uart)
+		{
+				SHELL_CMD(device, NULL, "Select device at <index>.",
+						  uart_shell_cmd_select),
+				SHELL_CMD(list,   NULL, "Ping command.", uart_shell_cmd_list),
+				SHELL_SUBCMD_SET_END /* Array terminated. */
+		};
+
+SHELL_CMD_REGISTER(uart, &sub_generic_uart, "Generic UART device commands", NULL);
