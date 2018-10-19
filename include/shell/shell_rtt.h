@@ -31,6 +31,15 @@ struct shell_rtt {
 		.ctx = (struct shell_rtt *)&_name##_shell_rtt		\
 	}
 
+/**
+* @brief Function provides pointer to shell rtt backend instance.
+*
+* Function returns pointer to the shell rtt instance. This instance can be
+* next used with shell_execute_cmd function in order to test commands behavior.
+*
+* @returns Pointer to the shell instance.
+*/
+const struct shell *shell_backend_rtt_get_ptr(void);
 #ifdef __cplusplus
 }
 #endif

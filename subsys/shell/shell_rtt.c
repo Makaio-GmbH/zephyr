@@ -34,7 +34,7 @@ static void shell_rtt_rx_process(struct shell_rtt *sh_rtt)
 
 		if(count > 0)
 		{
-			sh_rtt->rx_cnt = 1;
+			sh_rtt->rx_cnt = count;
 			sh_rtt->handler(SHELL_TRANSPORT_EVT_RX_RDY, sh_rtt->context);
 		}
 #ifdef SHELL_BACKEND_RTT_IRQLOCK
