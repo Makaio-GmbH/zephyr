@@ -92,9 +92,6 @@ static void uart_drv_flush(struct uart_drv_context *ctx)
 
 static void uart_drv_isr(struct device *uart_dev)
 {
-
-    SYS_LOG_DBG("uart_drv_isr");
-
     struct uart_drv_context *ctx;
     int ret;
     size_t rx;

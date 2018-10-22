@@ -19,6 +19,7 @@
 #include <misc/printk.h>
 
 #include <drivers/generic_uart/generic_uart_drv.h>
+#include <logging/sys_log.h>
 
 int uart_shell_selected_device = 0;
 
@@ -51,16 +52,18 @@ int uart_shell_cmd_list(int argc, char *argv[])
 	return 0;
 }
 
-int uart_shell_cmd_select(int argc, char *argv[]) {
+int uart_shell_cmd_select(const struct shell *shell,
+						  size_t argc, char *argv[]) {
 
 	struct uart_drv_context *drv_ctx;
 	char *endptr;
 	int ret, i, arg = 1;
-
+	
 	if (!argv[arg]) {
 		printk("Please enter a device index\n");
 		return -EINVAL;
 	}
+
 
 
     /* <index> of device */
@@ -82,7 +85,8 @@ int uart_shell_cmd_select(int argc, char *argv[]) {
 	return 0;
 }
 
-int uart_shell_cmd_send(int argc, char *argv[])
+int uart_shell_cmd_send(const struct shell *shell,
+                        size_t argc, char *argv[])
 {
 
 	struct uart_drv_context *drv_ctx;
@@ -108,8 +112,8 @@ int uart_shell_cmd_send(int argc, char *argv[])
             // TODO
             uart_command[uart_command_len] = '\r';
             uart_command_len++;
-            uart_command[uart_command_len] = '\n';
-            uart_command_len++;
+          //  uart_command[uart_command_len] = '\n';
+           // uart_command_len++;
         } else {
             uart_command[uart_command_len] = ' ';
             uart_command_len++;
@@ -139,6 +143,7 @@ SHELL_CREATE_STATIC_SUBCMD_SET(sub_generic_uart)
 				SHELL_CMD(device, NULL, "Select device at <index>.",
 						  uart_shell_cmd_select),
 				SHELL_CMD(list,   NULL, "Ping command.", uart_shell_cmd_list),
+                SHELL_CMD(send,   NULL, "Send an AT <command> to selected device", uart_shell_cmd_send),
 				SHELL_SUBCMD_SET_END /* Array terminated. */
 		};
 

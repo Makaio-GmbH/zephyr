@@ -16,6 +16,7 @@
 #include <drivers/generic_uart/generic_uart_drv.h>
 #include <string.h>
 #include <net/buf.h>
+#include <misc/stack.h>
 
 //#undef CONFIG_NET_BUF
 
@@ -421,19 +422,26 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
     int ret = 0;
 
     size_t bytes_read = 0;
-    u8_t uart_buffer[1024];
-    u8_t temp_buffer[256];
+    u8_t uart_buffer[256];
+    u8_t temp_buffer[128];
 
     u16_t line_len = 0;
     u16_t test_line_len = 0;
 
+
+
+
     while (ret == 0) {
+
         k_sem_take(&ictx->drv_ctx.rx_sem, K_FOREVER);
-SYS_LOG_DBG("RX SEM taken");
+
+
         bytes_read = uart_dev_read_rx(ictx, uart_buffer);
 
 
         while (bytes_read) {
+
+            _hexdump(uart_buffer, bytes_read);
             memcpy(&temp_buffer[line_len], &uart_buffer, bytes_read);
 
             line_len += bytes_read;
@@ -517,11 +525,8 @@ int uart_dev_init(struct uart_dev_ctx *dev_ctx, struct device *uart_dev)
     dev_ctx->generic_resp_handler = resp_handler;
 */
 
-    /* initialize the work queue */
-    k_work_q_start(&dev_ctx->workq,
-                   dev_ctx->workq_stack,
-                   K_THREAD_STACK_SIZEOF(dev_ctx->workq_stack),
-                   K_PRIO_COOP(7));
+
+
 
     // TODO:
     dev_ctx->linebreak_constant = "\r\n";
@@ -548,15 +553,18 @@ int uart_dev_init(struct uart_dev_ctx *dev_ctx, struct device *uart_dev)
 
     ret = uart_drv_register(&dev_ctx->drv_ctx, uart_dev->config->name,
                                 dev_ctx->recv_buf, sizeof(dev_ctx->recv_buf));
+
     if (ret < 0) {
         SYS_LOG_ERR("Error registering modem receiver (%d)!", ret);
         goto error;
     }
     /* start RX thread */
+
     k_thread_create(&dev_ctx->rx_thread, dev_ctx->rx_thread_stack,
-                    K_THREAD_STACK_SIZEOF(dev_ctx->rx_thread_stack),
+                    2048, // TODO!!
                     (k_thread_entry_t) uart_dev_rx,
                     dev_ctx, NULL, NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
+
 
     error:
     return ret;

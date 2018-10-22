@@ -14,7 +14,7 @@
 #include "flash.h"
 #include <soc.h>
 
-extern const struct shell *ctx_shell;
+const struct shell *ctx_shell;
 
 #define print(_sh, _ft, ...) \
 	shell_fprintf(_sh ? _sh : ctx_shell, SHELL_NORMAL, _ft "\r\n", \

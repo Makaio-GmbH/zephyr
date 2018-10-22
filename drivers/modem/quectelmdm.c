@@ -14,6 +14,7 @@
 #include <net/net_context.h>
 #include <net/tcp.h>
 #include <net/net_offload.h>
+#include <misc/stack.h>
 /* TODO
 #if (defined(CONFIG_LORA_UART0) && CONFIG_LORA_UART0 == 1) || (defined(CONFIG_LORA_UARTE0) && CONFIG_LORA_UARTE0 == 1)
 #define LORA_DEV_UART_NAME CONFIG_UART_0_NAME
@@ -125,6 +126,7 @@ static int on_cmd_gprsstatus(uint8_t *buf, u16_t len)
 
 static int on_cmd_regstatus(uint8_t *buf, u16_t len)
 {
+    SYS_LOG_DBG("len %u", len);
     if(len == 4)
     {
         char reg_status = buf[2];
@@ -145,7 +147,6 @@ static int on_cmd_regstatus(uint8_t *buf, u16_t len)
 static void quectelmdm_init_work(struct k_work *work)
 {
 
-    return;
     u32_t statValue = 0;
 
     /* Check if modem is already powered on - if not, trigger PWRKEY pin */
@@ -168,7 +169,7 @@ static void quectelmdm_init_work(struct k_work *work)
                        12,0);
     }
     mdm_comm_active = false;
-    uart_dev_send_cmd(&quectelmdm_data.dev_ctx, "AT",QUECTELMDM_CMD_TIMEOUT, on_initial_at_resp);
+    uart_dev_send_cmd(&quectelmdm_data.dev_ctx, "ATE0",QUECTELMDM_CMD_TIMEOUT, on_initial_at_resp);
 
 
     if(mdm_comm_active)
@@ -190,9 +191,30 @@ static void quectelmdm_init()
 SYS_LOG_DBG("quectelmdm_init");
     static struct k_delayed_work init_work;
     k_delayed_work_init(&init_work, quectelmdm_init_work);
-    ret = k_delayed_work_submit_to_queue(&quectelmdm_workq,
-                                        &init_work, K_MSEC(10));
 
+
+    STACK_ANALYZE("modem stack1", quectelmdm_workq_stack);
+
+
+    k_work_q_start(&quectelmdm_workq,
+                   quectelmdm_workq_stack,
+                   K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack),
+                   K_PRIO_COOP(7));
+
+
+    SYS_LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack));
+
+
+
+  ret = k_delayed_work_submit_to_queue(&quectelmdm_workq,
+          &init_work, K_MSEC(10));
+
+  if(ret == 0)
+  {
+      SYS_LOG_INF("Modem initialized successfully");
+  } else {
+      SYS_LOG_ERR("Modem initialization failed");
+  }
 
 }
 
@@ -203,8 +225,19 @@ const static struct cmd_handler handlers[] = {
         CMD_HANDLER("+CGATT:", gprsstatus),
 };
 
+
+static void adv_stack_dump(const struct k_thread *thread, void *user_data)
+{
+
+    stack_analyze((char *)user_data, (char *)thread->stack_info.start,
+                  thread->stack_info.size);
+
+}
+
 static int modem_device_init(struct device *dev)
 {
+    SYS_LOG_DBG("init");
+
     struct device* uart_device = device_get_binding(MDM_DEV_UART_NAME);
     //struct device* uart_device = dev;
 
@@ -216,25 +249,24 @@ static int modem_device_init(struct device *dev)
     dev_ctx.command_handler_cnt = (uint8_t) ARRAY_SIZE(handlers);
     dev_ctx.generic_resp_handler = NULL;
 
-    dev_ctx.workq = quectelmdm_workq;
-    dev_ctx.workq_stack = quectelmdm_workq_stack;
+    //dev_ctx.workq = quectelmdm_workq;
+    //dev_ctx.workq_stack = quectelmdm_workq_stack;
 
     dev_ctx.rx_thread = quectelmdm_rx_thread;
     dev_ctx.rx_thread_stack = quectelmdm_rx_stack;
 
     quectelmdm_data.dev_ctx = dev_ctx;
 
+    //SYS_LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(dev_ctx.workq_stack));
+    SYS_LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack));
 
+    k_thread_foreach(adv_stack_dump, "BT_MESH");
+   // STACK_ANALYZE("adv stack2", dev_ctx.rx_thread_stack);
+   // k_thread_foreach(adv_stack_dump, "BT_MESH");
 
-
-/* RX thread work queue */
-/*
-    K_THREAD_STACK_DEFINE(uart_dev_workq_stack,
-                          CONFIG_MODEM_uart_dev_RX_WORKQ_STACK_SIZE);
-    static struct k_work_q uart_dev_workq;
-  */
 
     uart_dev_init(&quectelmdm_data.dev_ctx, uart_device);
+
 SYS_LOG_DBG("After uart_dev_init");
     SYS_LOG_DBG("Modem running at %s", uart_device->config->name);
     quectelmdm_data.uart_device = uart_device;
@@ -245,6 +277,7 @@ SYS_LOG_DBG("After uart_dev_init");
 #else
     quectelmdm_init();
 #endif
+
     return 0;
 }
 

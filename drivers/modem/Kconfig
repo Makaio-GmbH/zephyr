@@ -39,6 +39,11 @@ config MODEM_SHELL
 	  Activate shell module that provides modem utilities like
 	  sending a command to the modem UART.
 
+config MODEM_QUECTELMDM
+    bool "Enable quectel modem"
+    help
+      Quectel mdm
+
 config MODEM_WNCM14A2A
 	bool "Enable Wistron LTE-M modem driver"
 	depends on UART_INTERRUPT_DRIVEN
