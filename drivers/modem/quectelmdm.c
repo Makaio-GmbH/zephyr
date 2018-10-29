@@ -25,7 +25,7 @@
 #define MDM_DEV_UART_NAME CONFIG_UART_1_NAME
 #define MDM_DEV_NAME "MODEM"
 #define QUECTELMDM_CMD_TIMEOUT			K_SECONDS(5)
-#define CONFIG_QUECTELMDM_INIT_PRIORITY 20
+#define CONFIG_QUECTELMDM_INIT_PRIORITY 80
 #define CONFIG_MODEM_APN_NAME "wm"
 #ifdef CONFIG_NET_OFFLOAD
 #undef CONFIG_NET_OFFLOAD
@@ -59,8 +59,11 @@ static int on_initial_at_resp(uint8_t *buf, u16_t len)
 {
     if(!strcmp("OK", buf))
     {
+        SYS_LOG_DBG("Modem seems to be available");
         mdm_comm_active = true;
         return 0;
+    } else {
+        SYS_LOG_DBG("Unknown response");
     }
     return 1;
 }
@@ -199,7 +202,7 @@ SYS_LOG_DBG("quectelmdm_init");
     k_work_q_start(&quectelmdm_workq,
                    quectelmdm_workq_stack,
                    K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack),
-                   K_PRIO_COOP(7));
+                   K_PRIO_COOP(12));
 
 
     SYS_LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack));

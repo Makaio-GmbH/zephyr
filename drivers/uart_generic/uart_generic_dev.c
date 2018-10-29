@@ -106,6 +106,7 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
     uart_drv_send(&dev_ctx->drv_ctx, data, strlen(data));
 
     k_free(data);
+    SYS_LOG_DBG("Sent");
 
     if (timeout == K_NO_WAIT) {
         return 0;
@@ -122,6 +123,10 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
     //if (!sock) {
         k_sem_reset(&dev_ctx->response_sem);
         ret = k_sem_take(&dev_ctx->response_sem, timeout);
+        if(ret != 0)
+        {
+            SYS_LOG_DBG("Sem timed out");
+        }
     /*   }  TODO: implement sock and transform to CHANNEL or so
  else {
          k_sem_reset(&sock->sock_send_sem);
@@ -435,13 +440,12 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
 
         k_sem_take(&ictx->drv_ctx.rx_sem, K_FOREVER);
 
-
         bytes_read = uart_dev_read_rx(ictx, uart_buffer);
 
 
         while (bytes_read) {
 
-            _hexdump(uart_buffer, bytes_read);
+            //_hexdump(uart_buffer, bytes_read);
             memcpy(&temp_buffer[line_len], &uart_buffer, bytes_read);
 
             line_len += bytes_read;
@@ -473,8 +477,10 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
 
                             if(ret_handled == 0)
                             {
+								SYS_LOG_DBG("Prio is %d", k_thread_priority_get(k_current_get()));
                                 SYS_LOG_WRN("UART handled");
                                 // TODO if (!sock) {
+                                SYS_LOG_DBG("give response_sem");
                                 k_sem_give(&ictx->response_sem);
                                 SYS_LOG_DBG("%s Sem count (%u)", ictx->drv_ctx.uart_dev->config->name,
                                         k_sem_count_get(&ictx->response_sem));
@@ -563,7 +569,7 @@ int uart_dev_init(struct uart_dev_ctx *dev_ctx, struct device *uart_dev)
     k_thread_create(&dev_ctx->rx_thread, dev_ctx->rx_thread_stack,
                     2048, // TODO!!
                     (k_thread_entry_t) uart_dev_rx,
-                    dev_ctx, NULL, NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
+                    dev_ctx, NULL, NULL, K_PRIO_COOP(11), 0, K_NO_WAIT);
 
 
     error:
