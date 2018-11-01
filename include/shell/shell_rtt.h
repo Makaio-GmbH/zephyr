@@ -16,11 +16,10 @@ extern "C" {
 extern const struct shell_transport_api shell_rtt_transport_api;
 
 struct shell_rtt {
-	struct device *dev;
 	shell_transport_handler_t handler;
 	struct k_timer timer;
 	void *context;
-	u8_t rx[1];
+	u8_t rx[5];
 	size_t rx_cnt;
 };
 
@@ -32,13 +31,13 @@ struct shell_rtt {
 	}
 
 /**
-* @brief Function provides pointer to shell rtt backend instance.
-*
-* Function returns pointer to the shell rtt instance. This instance can be
-* next used with shell_execute_cmd function in order to test commands behavior.
-*
-* @returns Pointer to the shell instance.
-*/
+ * @brief Function provides pointer to shell rtt backend instance.
+ *
+ * Function returns pointer to the shell rtt instance. This instance can be
+ * next used with shell_execute_cmd function in order to test commands behavior.
+ *
+ * @returns Pointer to the shell instance.
+ */
 const struct shell *shell_backend_rtt_get_ptr(void);
 #ifdef __cplusplus
 }

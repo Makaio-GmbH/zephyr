@@ -13,36 +13,21 @@ SHELL_RTT_DEFINE(shell_transport_rtt);
 SHELL_DEFINE(rtt_shell, "rtt:~$ ", &shell_transport_rtt, 10,
 	     SHELL_FLAG_OLF_CRLF);
 
-
 static struct k_thread rtt_rx_thread;
 static K_THREAD_STACK_DEFINE(rtt_rx_stack, 1024);
 
 static void shell_rtt_rx_process(struct shell_rtt *sh_rtt)
 {
-    u32_t count;
-#ifdef SHELL_BACKEND_RTT_IRQLOCK
-	u32_t key;
-#endif
+	u32_t count;
 
-	while (true)
-	{
-#ifdef SHELL_BACKEND_RTT_IRQLOCK
-		key = irq_lock();
-#else
-		SEGGER_RTT_LOCK();
-#endif
-		count = SEGGER_RTT_ReadNoLock(0, sh_rtt->rx, sizeof(sh_rtt->rx));
+	while (1) {
+		count = SEGGER_RTT_Read(0, sh_rtt->rx, sizeof(sh_rtt->rx));
 
-		if(count > 0)
-		{
+		if (count > 0) {
 			sh_rtt->rx_cnt = count;
 			sh_rtt->handler(SHELL_TRANSPORT_EVT_RX_RDY, sh_rtt->context);
 		}
-#ifdef SHELL_BACKEND_RTT_IRQLOCK
-		irq_unlock(key);
-#else
-		SEGGER_RTT_UNLOCK();
-#endif
+
 		k_sleep(K_MSEC(10));
 	}
 }
@@ -53,18 +38,16 @@ static int init(const struct shell_transport *transport,
 		shell_transport_handler_t evt_handler,
 		void *context)
 {
-
 	struct shell_rtt *sh_rtt = (struct shell_rtt *)transport->ctx;
 
-    sh_rtt->dev = device_get_binding(CONFIG_UART_CONSOLE_ON_DEV_NAME);
-    sh_rtt->handler = evt_handler;
-    sh_rtt->context = context;
-
+	sh_rtt->handler = evt_handler;
+	sh_rtt->context = context;
 
 	k_thread_create(&rtt_rx_thread, rtt_rx_stack,
-					K_THREAD_STACK_SIZEOF(rtt_rx_stack),
-					(k_thread_entry_t)shell_rtt_rx_process,
-					sh_rtt, NULL, NULL, K_PRIO_COOP(8), 0, K_NO_WAIT);
+			K_THREAD_STACK_SIZEOF(rtt_rx_stack),
+			(k_thread_entry_t)shell_rtt_rx_process,
+			sh_rtt, NULL, NULL, K_PRIO_COOP(8),
+			0, K_NO_WAIT);
 
 	return 0;
 }
@@ -85,10 +68,10 @@ static int write(const struct shell_transport *transport,
 	struct shell_rtt *sh_rtt = (struct shell_rtt *)transport->ctx;
 	const u8_t *data8 = (const u8_t *)data;
 
-	SEGGER_RTT_WriteNoLock(0, data8, length);
+	SEGGER_RTT_Write(0, data8, length);
 	*cnt = length;
 
-    sh_rtt->handler(SHELL_TRANSPORT_EVT_TX_RDY, sh_rtt->context);
+	sh_rtt->handler(SHELL_TRANSPORT_EVT_TX_RDY, sh_rtt->context);
 	return 0;
 }
 
@@ -100,7 +83,7 @@ static int read(const struct shell_transport *transport,
 	if (sh_rtt->rx_cnt) {
 		memcpy(data, sh_rtt->rx, sh_rtt->rx_cnt);
 		*cnt = sh_rtt->rx_cnt;
-        sh_rtt->rx_cnt = 0;
+		sh_rtt->rx_cnt = 0;
 	} else {
 		*cnt = 0;
 	}
