@@ -21,17 +21,10 @@ config SHELL_BACKEND_SERIAL
 	help
 	  Enable serial backends.
 
-config SHELL_BACKEND_RTT
-	bool "Enable RTT backend."
-	select RTT_CONSOLE
+config SHELL_BACKEND_DUMMY
+	bool "Enable dummy backend."
 	help
-	  Enable RTT backend.
-
-config SHELL_BACKEND_RTT_IRQLOCK
-	bool "RTT backend uses IRQ Lock"
-	depends on SHELL_BACKEND_RTT
-	help
-	  RTT backend uses IRQ Lock instead of
+	  Enable dummy backend which can be used to execute commands with no
+	  need for physical transport interface.
 
 endif # SHELL_BACKENDS
-

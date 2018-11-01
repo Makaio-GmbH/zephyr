@@ -576,7 +576,6 @@ struct k_thread {
 
 typedef struct k_thread _thread_t;
 typedef struct k_thread *k_tid_t;
-#define tcs k_thread
 
 enum execution_context_types {
 	K_ISR = 0,
@@ -787,9 +786,11 @@ void k_thread_system_pool_assign(struct k_thread *thread);
  *
  * @param duration Number of milliseconds to sleep.
  *
- * @return N/A
+ * @return Zero if the requested time has elapsed or the number of milliseconds
+ * left to sleep, if thread was woken up by \ref k_wakeup call.
+ *
  */
-__syscall void k_sleep(s32_t duration);
+__syscall s32_t k_sleep(s32_t duration);
 
 /**
  * @brief Cause the current thread to busy wait.
@@ -1753,7 +1754,7 @@ extern void k_queue_append(struct k_queue *queue, void *data);
  * @retval 0 on success
  * @retval -ENOMEM if there isn't sufficient RAM in the caller's resource pool
  */
-__syscall int k_queue_alloc_append(struct k_queue *queue, void *data);
+__syscall s32_t k_queue_alloc_append(struct k_queue *queue, void *data);
 
 /**
  * @brief Prepend an element to a queue.
@@ -1786,7 +1787,7 @@ extern void k_queue_prepend(struct k_queue *queue, void *data);
  * @retval 0 on success
  * @retval -ENOMEM if there isn't sufficient RAM in the caller's resource pool
  */
-__syscall int k_queue_alloc_prepend(struct k_queue *queue, void *data);
+__syscall s32_t k_queue_alloc_prepend(struct k_queue *queue, void *data);
 
 /**
  * @brief Inserts an element to a queue.
@@ -4845,61 +4846,6 @@ extern void _arch_start_cpu(int cpu_num, k_thread_stack_t *stack, int sz,
 #ifdef __cplusplus
 }
 #endif
-
-#if defined(CONFIG_CPLUSPLUS) && defined(__cplusplus)
-/*
- * Define new and delete operators.
- * At this moment, the operators do nothing since objects are supposed
- * to be statically allocated.
- */
-inline void operator delete(void *ptr)
-{
-	(void)ptr;
-}
-
-inline void operator delete[](void *ptr)
-{
-	(void)ptr;
-}
-
-inline void *operator new(size_t size)
-{
-	(void)size;
-	return NULL;
-}
-
-inline void *operator new[](size_t size)
-{
-	(void)size;
-	return NULL;
-}
-
-/* Placement versions of operator new and delete */
-inline void operator delete(void *ptr1, void *ptr2)
-{
-	(void)ptr1;
-	(void)ptr2;
-}
-
-inline void operator delete[](void *ptr1, void *ptr2)
-{
-	(void)ptr1;
-	(void)ptr2;
-}
-
-inline void *operator new(size_t size, void *ptr)
-{
-	(void)size;
-	return ptr;
-}
-
-inline void *operator new[](size_t size, void *ptr)
-{
-	(void)size;
-	return ptr;
-}
-
-#endif /* defined(CONFIG_CPLUSPLUS) && defined(__cplusplus) */
 
 #include <tracing.h>
 #include <syscalls/kernel.h>

@@ -32,10 +32,8 @@ config NET_BUF_LOG
 	  Enable logs and checks for the generic network buffers.
 
 module = NET_BUF
-module-dep = LOG
-module-str = Log level for network buffer handling
-module-help = Sets log level for network buffers.
-source "subsys/net/Kconfig.template.log_config.net"
+module-str = net_buf
+source "subsys/logging/Kconfig.template.log_config"
 
 if NET_BUF_LOG
 

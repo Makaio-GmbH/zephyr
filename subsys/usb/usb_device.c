@@ -61,7 +61,6 @@
 #include <misc/util.h>
 #include <misc/__assert.h>
 #include <init.h>
-#include <board.h>
 #if defined(USB_VUSB_EN_GPIO)
 #include <gpio.h>
 #endif
@@ -1132,7 +1131,8 @@ static struct usb_transfer_data *usb_ep_get_transfer(u8_t ep)
 static void usb_transfer_work(struct k_work *item)
 {
 	struct usb_transfer_data *trans;
-	int ret = 0, bytes;
+	int ret = 0;
+	u32_t bytes;
 	u8_t ep;
 
 	trans = CONTAINER_OF(item, struct usb_transfer_data, work);

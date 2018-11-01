@@ -11,6 +11,7 @@
 
 #include <soc.h>
 #include <device.h>
+#include <entropy.h>
 #include <clock_control.h>
 #include <bluetooth/hci.h>
 #include <misc/util.h>
@@ -19,7 +20,6 @@
 
 #if defined(CONFIG_SOC_COMPATIBLE_NRF)
 #include <drivers/clock_control/nrf5_clock_control.h>
-#include <drivers/entropy/nrf5_entropy.h>
 #endif /* CONFIG_SOC_COMPATIBLE_NRF */
 
 #include "hal/cpu.h"
@@ -3925,9 +3925,9 @@ static inline u32_t isr_close_adv(void)
 			u32_t ticker_status;
 			u16_t random_delay;
 
-			entropy_nrf_get_entropy_isr(_radio.entropy,
-						    (void *)&random_delay,
-						    sizeof(random_delay));
+			entropy_get_entropy_isr(_radio.entropy,
+						(void *)&random_delay,
+						sizeof(random_delay), 0);
 
 			random_delay %= HAL_TICKER_US_TO_TICKS(10000);
 			random_delay += 1;
@@ -9398,11 +9398,21 @@ static void enc_req_reused_send(struct connection *conn,
 		conn->llcp.encryption.ediv[0];
 	pdu_ctrl_tx->llctrl.enc_req.ediv[1] =
 		conn->llcp.encryption.ediv[1];
+
+	/*
+	 * Take advantage of the fact that ivm and skdm fields, which both have
+	 * to be filled with random data, are adjacent and use single call to
+	 * the entropy driver.
+	 */
+	BUILD_ASSERT(offsetof(__typeof(pdu_ctrl_tx->llctrl.enc_req), ivm) ==
+		     (offsetof(__typeof(pdu_ctrl_tx->llctrl.enc_req), skdm) +
+		     sizeof(pdu_ctrl_tx->llctrl.enc_req.skdm)));
+
 	/* NOTE: if not sufficient random numbers, ignore waiting */
-	entropy_nrf_get_entropy_isr(_radio.entropy, pdu_ctrl_tx->llctrl.enc_req.skdm,
-				    sizeof(pdu_ctrl_tx->llctrl.enc_req.skdm));
-	entropy_nrf_get_entropy_isr(_radio.entropy, pdu_ctrl_tx->llctrl.enc_req.ivm,
-				    sizeof(pdu_ctrl_tx->llctrl.enc_req.ivm));
+	entropy_get_entropy_isr(_radio.entropy,
+				pdu_ctrl_tx->llctrl.enc_req.skdm,
+				sizeof(pdu_ctrl_tx->llctrl.enc_req.skdm) +
+				sizeof(pdu_ctrl_tx->llctrl.enc_req.ivm), 0);
 }
 
 static u8_t enc_rsp_send(struct connection *conn)
@@ -9421,11 +9431,21 @@ static u8_t enc_rsp_send(struct connection *conn)
 	pdu_ctrl_tx->len = offsetof(struct pdu_data_llctrl, enc_rsp) +
 			   sizeof(struct pdu_data_llctrl_enc_rsp);
 	pdu_ctrl_tx->llctrl.opcode = PDU_DATA_LLCTRL_TYPE_ENC_RSP;
+
+	/*
+	 * Take advantage of the fact that ivs and skds fields, which both have
+	 * to be filled with random data, are adjacent and use single call to
+	 * the entropy driver.
+	 */
+	BUILD_ASSERT(offsetof(__typeof(pdu_ctrl_tx->llctrl.enc_rsp), ivs) ==
+		     (offsetof(__typeof(pdu_ctrl_tx->llctrl.enc_rsp), skds) +
+		     sizeof(pdu_ctrl_tx->llctrl.enc_rsp.skds)));
+
 	/* NOTE: if not sufficient random numbers, ignore waiting */
-	entropy_nrf_get_entropy_isr(_radio.entropy, pdu_ctrl_tx->llctrl.enc_rsp.skds,
-				    sizeof(pdu_ctrl_tx->llctrl.enc_rsp.skds));
-	entropy_nrf_get_entropy_isr(_radio.entropy, pdu_ctrl_tx->llctrl.enc_rsp.ivs,
-				    sizeof(pdu_ctrl_tx->llctrl.enc_rsp.ivs));
+	entropy_get_entropy_isr(_radio.entropy,
+				pdu_ctrl_tx->llctrl.enc_rsp.skds,
+				sizeof(pdu_ctrl_tx->llctrl.enc_rsp.skds) +
+				sizeof(pdu_ctrl_tx->llctrl.enc_rsp.ivs), 0);
 
 	/* things from slave stored for session key calculation */
 	memcpy(&conn->llcp.encryption.skd[8],
@@ -11385,25 +11405,26 @@ void ll_rx_mem_release(void **node_rx)
 
 		switch (_node_rx_free->hdr.type) {
 		case NODE_RX_TYPE_CONNECTION:
-			if (*((u8_t *)_node_rx_free->pdu_data) ==
-			    BT_HCI_ERR_UNKNOWN_CONN_ID) {
-				struct connection *conn;
+			if (IS_ENABLED(CONFIG_BT_CENTRAL)) {
+				if (*((u8_t *)_node_rx_free->pdu_data) ==
+				    BT_HCI_ERR_UNKNOWN_CONN_ID) {
+					struct connection *conn;
 
-				conn = _radio.scanner.conn;
-				_radio.scanner.conn = NULL;
+					conn = _radio.scanner.conn;
+					_radio.scanner.conn = NULL;
 
-				mem_release(conn, &_radio.conn_free);
+					mem_release(conn, &_radio.conn_free);
 
-				_radio.scanner.is_enabled = 0;
+					_radio.scanner.is_enabled = 0;
 
-				if (!_radio.advertiser.is_enabled) {
-					ll_adv_scan_state_cb(0);
+					if (!_radio.advertiser.is_enabled) {
+						ll_adv_scan_state_cb(0);
+					}
+
+					break;
 				}
-
-				break;
 			}
 			/* passthrough */
-
 		case NODE_RX_TYPE_DC_PDU:
 		case NODE_RX_TYPE_REPORT:
 

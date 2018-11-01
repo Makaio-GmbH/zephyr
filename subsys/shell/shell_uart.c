@@ -73,7 +73,9 @@ static int read(const struct shell_transport *transport,
 		void *data, size_t length, size_t *cnt)
 {
 	struct shell_uart *sh_uart = (struct shell_uart *)transport->ctx;
+	u32_t key;
 
+	key = irq_lock();
 	if (sh_uart->rx_cnt) {
 		memcpy(data, sh_uart->rx, 1);
 		sh_uart->rx_cnt = 0;
@@ -81,6 +83,7 @@ static int read(const struct shell_transport *transport,
 	} else {
 		*cnt = 0;
 	}
+	irq_unlock(key);
 
 	return 0;
 }
@@ -100,3 +103,8 @@ static int enable_shell_uart(struct device *arg)
 	return 0;
 }
 SYS_INIT(enable_shell_uart, POST_KERNEL, 0);
+
+const struct shell *shell_backend_uart_get_ptr(void)
+{
+	return &uart_shell;
+}

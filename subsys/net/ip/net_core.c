@@ -95,7 +95,7 @@ static inline enum net_verdict process_data(struct net_pkt *pkt,
 	case 0x60:
 		net_stats_update_ipv6_recv(net_pkt_iface(pkt));
 		net_pkt_set_family(pkt, PF_INET6);
-		return net_ipv6_process_pkt(pkt);
+		return net_ipv6_process_pkt(pkt, is_loopback);
 #endif
 #if defined(CONFIG_NET_IPV4)
 	case 0x40:
@@ -211,7 +211,9 @@ static inline int check_ip_addr(struct net_pkt *pkt)
 		 * back to us.
 		 */
 		if (net_is_ipv4_addr_loopback(&NET_IPV4_HDR(pkt)->dst) ||
-		    net_is_my_ipv4_addr(&NET_IPV4_HDR(pkt)->dst)) {
+		    (net_is_ipv4_addr_bcast(net_pkt_iface(pkt),
+				     &NET_IPV4_HDR(pkt)->dst) == false &&
+		     net_is_my_ipv4_addr(&NET_IPV4_HDR(pkt)->dst))) {
 			struct in_addr addr;
 
 			/* Swap the addresses so that in receiving side

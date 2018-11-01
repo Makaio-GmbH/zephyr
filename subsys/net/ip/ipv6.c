@@ -421,7 +421,7 @@ drop:
 }
 #endif /* CONFIG_NET_ROUTE */
 
-enum net_verdict net_ipv6_process_pkt(struct net_pkt *pkt)
+enum net_verdict net_ipv6_process_pkt(struct net_pkt *pkt, bool is_loopback)
 {
 	struct net_ipv6_hdr *hdr = NET_IPV6_HDR(pkt);
 	int real_len = net_pkt_get_len(pkt);
@@ -445,6 +445,13 @@ enum net_verdict net_ipv6_process_pkt(struct net_pkt *pkt)
 		log_strdup(net_sprint_ipv6_addr(&hdr->src)),
 		log_strdup(net_sprint_ipv6_addr(&hdr->dst)));
 
+	if (!is_loopback && (net_is_ipv6_addr_loopback(&hdr->dst) ||
+			     net_is_ipv6_addr_loopback(&hdr->src))) {
+		NET_DBG("Dropping ::1 packet");
+		net_stats_update_ipv6_drop(net_pkt_iface(pkt));
+		goto drop;
+	}
+
 	if (net_is_ipv6_addr_mcast(&hdr->src)) {
 		NET_DBG("Dropping src multicast packet");
 		net_stats_update_ipv6_drop(net_pkt_iface(pkt));
@@ -459,8 +466,7 @@ enum net_verdict net_ipv6_process_pkt(struct net_pkt *pkt)
 
 	if (!net_is_my_ipv6_addr(&hdr->dst) &&
 	    !net_is_my_ipv6_maddr(&hdr->dst) &&
-	    !net_is_ipv6_addr_mcast(&hdr->dst) &&
-	    !net_is_ipv6_addr_loopback(&hdr->dst)) {
+	    !net_is_ipv6_addr_mcast(&hdr->dst)) {
 #if defined(CONFIG_NET_ROUTE)
 		enum net_verdict verdict;
 
@@ -540,6 +546,22 @@ enum net_verdict net_ipv6_process_pkt(struct net_pkt *pkt)
 			 */
 			goto drop;
 
+		case NET_IPV6_NEXTHDR_DESTO:
+			frag = net_frag_read_u8(frag, offset, &offset,
+						(u8_t *)&length);
+			if (!frag) {
+				goto drop;
+			}
+			length = length * 8 + 8;
+			total_len += length;
+
+			ext_bitmap |= NET_IPV6_NEXTHDR_DESTO;
+
+			frag = handle_ext_hdr_options(pkt, frag, real_len,
+						      length, offset, &offset,
+						      &verdict);
+			break;
+
 		case NET_IPV6_NEXTHDR_HBHO:
 			if (ext_bitmap & NET_IPV6_EXT_HDR_BITMAP_HBHO) {
 				NET_ERR("Dropping packet with multiple HBHO");
@@ -596,6 +618,7 @@ enum net_verdict net_ipv6_process_pkt(struct net_pkt *pkt)
 upper_proto:
 
 	net_pkt_set_ipv6_ext_len(pkt, total_len);
+	net_pkt_set_transport_proto(pkt, next);
 
 	switch (next) {
 	case IPPROTO_ICMPV6:
