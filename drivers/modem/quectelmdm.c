@@ -7,7 +7,6 @@
 #include <zephyr.h>
 #include <drivers/generic_uart/generic_uart_drv.h>
 #include <device.h>
-#include <logging/sys_log.h>
 #include <gpio.h>
 #include <string.h>
 #include <net/net_if.h>
@@ -15,6 +14,8 @@
 #include <net/tcp.h>
 #include <net/net_offload.h>
 #include <misc/stack.h>
+#include <logging/log.h>
+
 /* TODO
 #if (defined(CONFIG_LORA_UART0) && CONFIG_LORA_UART0 == 1) || (defined(CONFIG_LORA_UARTE0) && CONFIG_LORA_UARTE0 == 1)
 #define LORA_DEV_UART_NAME CONFIG_UART_0_NAME
@@ -59,11 +60,11 @@ static int on_initial_at_resp(uint8_t *buf, u16_t len)
 {
     if(!strcmp("OK", buf))
     {
-        SYS_LOG_DBG("Modem seems to be available");
+        LOG_DBG("Modem seems to be available");
         mdm_comm_active = true;
         return 0;
     } else {
-        SYS_LOG_DBG("Unknown response");
+        LOG_DBG("Unknown response");
     }
     return 1;
 }
@@ -106,18 +107,18 @@ static int quectelmdm_enable_uplink(void)
 
 static int on_cmd_gprsstatus(uint8_t *buf, u16_t len)
 {
-    SYS_LOG_DBG("CGATT responded %s", buf);
+    LOG_DBG("CGATT responded %s", buf);
     if(len > 0)
     {
         char reg_status = buf[0];
 
         if(reg_status == '1')
         {
-            SYS_LOG_DBG("GPRS attached");
+            LOG_DBG("GPRS attached");
             quectelmdm_enable_uplink();
         } else if(reg_status == '0')
         {
-            SYS_LOG_DBG("Attach to GPRS");
+            LOG_DBG("Attach to GPRS");
             quectelmdm_set_apn();
             quectelmdm_attach_gprs();
             quectelmdm_enable_uplink();
@@ -129,14 +130,14 @@ static int on_cmd_gprsstatus(uint8_t *buf, u16_t len)
 
 static int on_cmd_regstatus(uint8_t *buf, u16_t len)
 {
-    SYS_LOG_DBG("len %u", len);
+    LOG_DBG("len %u", len);
     if(len == 4)
     {
         char reg_status = buf[2];
 
         if(reg_status == '1' || reg_status == '5')
         {
-            SYS_LOG_DBG("connected to carrier");
+            LOG_DBG("connected to carrier");
 
             quectelmdm_check_gprsstatus();
 
@@ -160,14 +161,14 @@ static void quectelmdm_init_work(struct k_work *work)
 
     gpio_pin_configure(gpio0_dev, 12, GPIO_DIR_OUT);
 
-    SYS_LOG_DBG("pin val %u", statValue);
+    LOG_DBG("pin val %u", statValue);
     if(!statValue)
     {
-        SYS_LOG_DBG("MDM_RESET_PIN #%u -> ASSERTED",14);
+        LOG_DBG("MDM_RESET_PIN #%u -> ASSERTED",14);
         gpio_pin_write(gpio0_dev,
                        12, 1);
         k_sleep(K_SECONDS(1));
-        SYS_LOG_DBG("MDM_RESET_PIN -> NOT_ASSERTED");
+        LOG_DBG("MDM_RESET_PIN -> NOT_ASSERTED");
         gpio_pin_write(gpio0_dev,
                        12,0);
     }
@@ -191,7 +192,7 @@ static void quectelmdm_init_work(struct k_work *work)
 static void quectelmdm_init()
 {
     int i, ret = 0;
-SYS_LOG_DBG("quectelmdm_init");
+LOG_DBG("quectelmdm_init");
     static struct k_delayed_work init_work;
     k_delayed_work_init(&init_work, quectelmdm_init_work);
 
@@ -205,7 +206,7 @@ SYS_LOG_DBG("quectelmdm_init");
                    K_PRIO_COOP(12));
 
 
-    SYS_LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack));
+    LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack));
 
 
 
@@ -214,9 +215,9 @@ SYS_LOG_DBG("quectelmdm_init");
 
   if(ret == 0)
   {
-      SYS_LOG_INF("Modem initialized successfully");
+      LOG_INF("Modem initialized successfully");
   } else {
-      SYS_LOG_ERR("Modem initialization failed");
+      LOG_ERR("Modem initialization failed");
   }
 
 }
@@ -239,7 +240,7 @@ static void adv_stack_dump(const struct k_thread *thread, void *user_data)
 
 static int modem_device_init(struct device *dev)
 {
-    SYS_LOG_DBG("init");
+    LOG_DBG("init");
 
     struct device* uart_device = device_get_binding(MDM_DEV_UART_NAME);
     //struct device* uart_device = dev;
@@ -260,8 +261,8 @@ static int modem_device_init(struct device *dev)
 
     quectelmdm_data.dev_ctx = dev_ctx;
 
-    //SYS_LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(dev_ctx.workq_stack));
-    SYS_LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack));
+    //LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(dev_ctx.workq_stack));
+    LOG_DBG("Workq initialized with %d bytes", K_THREAD_STACK_SIZEOF(quectelmdm_workq_stack));
 
     k_thread_foreach(adv_stack_dump, "BT_MESH");
    // STACK_ANALYZE("adv stack2", dev_ctx.rx_thread_stack);
@@ -270,8 +271,8 @@ static int modem_device_init(struct device *dev)
 
     uart_dev_init(&quectelmdm_data.dev_ctx, uart_device);
 
-SYS_LOG_DBG("After uart_dev_init");
-    SYS_LOG_DBG("Modem running at %s", uart_device->config->name);
+LOG_DBG("After uart_dev_init");
+    LOG_DBG("Modem running at %s", uart_device->config->name);
     quectelmdm_data.uart_device = uart_device;
     //quectelmdm_init();
 
@@ -405,11 +406,11 @@ static struct net_offload offload_funcs = {
 static void offload_iface_init(struct net_if *iface)
 {
     struct device *dev = net_if_get_device(iface);
-    SYS_LOG_DBG("offload_iface_init");
+    LOG_DBG("offload_iface_init");
 
     if(!dev)
     {
-        SYS_LOG_DBG("net dev not found");
+        LOG_DBG("net dev not found");
     } else {
         //struct wncm14a2a_iface_ctx *ctx = dev->driver_data;
         struct modem_device_data ctx = quectelmdm_data;

@@ -17,7 +17,7 @@
 #define DROP_MSG_LEN (sizeof(DROP_MSG) - 1)
 
 #else
-
+#define DROP_MAX 0
 #define DROP_MSG NULL
 #define DROP_MSG_LEN 0
 

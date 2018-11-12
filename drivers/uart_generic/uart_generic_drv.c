@@ -6,8 +6,8 @@
  */
 
 
-#define SYS_LOG_DOMAIN "generic_uart"
-#define SYS_LOG_LEVEL 4 // TODO
+#define LOG_DOMAIN "generic_uart"
+#define LOG_LEVEL 4 // TODO
 
 #include <drivers/generic_uart/generic_uart_drv.h>
 
@@ -15,7 +15,9 @@
 #include <init.h>
 #include <uart.h>
 
-#include <logging/sys_log.h>
+
+#include <logging/log.h>
+LOG_MODULE_REGISTER(uart_generic_drv, 4);
 
 #define MAX_READ_SIZE	128
 
@@ -42,15 +44,15 @@ struct uart_drv_context *context_from_dev(struct device *dev)
         }
     }
 
-    SYS_LOG_WRN("Context for device %s not found", dev->config->name);
-    SYS_LOG_WRN("Following devices are registered:");
+    LOG_WRN("Context for device %s not found", dev->config->name);
+    LOG_WRN("Following devices are registered:");
     for (i = 0; i < MAX_UART_DRV_CTX; i++) {
         if (contexts[i]) {
             if(contexts[i]->uart_dev && contexts[i] ->uart_dev->config)
             {
-                SYS_LOG_WRN("[%u] %s %s", i, contexts[i]->uart_dev->config->name);
+                LOG_WRN("[%u] %s %s", i, contexts[i]->uart_dev->config->name);
             } else {
-                SYS_LOG_WRN("[%u] NO DEVICE ASSIGNED", i);
+                LOG_WRN("[%u] NO DEVICE ASSIGNED", i);
             }
 
         }
@@ -85,7 +87,7 @@ static void uart_drv_flush(struct uart_drv_context *ctx)
         continue;
     }
 
-    SYS_LOG_DBG("Init UART pipe");
+    LOG_DBG("Init UART pipe");
     /* clear the UART pipe */
     k_pipe_init(&ctx->uart_pipe, ctx->uart_pipe_buf, ctx->uart_pipe_size);
 }
@@ -103,7 +105,7 @@ static void uart_drv_isr(struct device *uart_dev)
     /* lookup the device */
     ctx = context_from_dev(uart_dev);
     if (!ctx) {
-        SYS_LOG_WRN("Device not found %s", uart_dev->config->name);
+        LOG_WRN("Device not found %s", uart_dev->config->name);
         return;
     }
 
@@ -115,7 +117,7 @@ static void uart_drv_isr(struct device *uart_dev)
             ret = k_pipe_put(&ctx->uart_pipe, read_buf, rx,
                              &bytes_written, rx, K_NO_WAIT);
             if (ret < 0) {
-                SYS_LOG_WRN("UART buffer write error (%d)! "
+                LOG_WRN("UART buffer write error (%d)! "
                             "Flushing UART!", ret);
                 uart_drv_flush(ctx);
                 return;
@@ -175,7 +177,7 @@ static void uart_drv_setup(struct uart_drv_context *ctx)
     uart_irq_callback_set(ctx->uart_dev, uart_drv_isr);
     uart_irq_rx_enable(ctx->uart_dev);
 
-    SYS_LOG_DBG("Context for UART_DEV %s setup", ctx->uart_dev->config->name);
+    LOG_DBG("Context for UART_DEV %s setup", ctx->uart_dev->config->name);
 }
 
 int uart_drv_register(struct uart_drv_context *ctx,
@@ -189,9 +191,9 @@ int uart_drv_register(struct uart_drv_context *ctx,
     }
 
     ctx->uart_dev = device_get_binding(uart_dev_name);
-    SYS_LOG_DBG("assigning %s", uart_dev_name);
+    LOG_DBG("assigning %s", uart_dev_name);
     if (!ctx->uart_dev) {
-        SYS_LOG_WRN("uart %s not found", uart_dev_name);
+        LOG_WRN("uart %s not found", uart_dev_name);
         return -ENOENT;
     }
 
@@ -202,7 +204,7 @@ int uart_drv_register(struct uart_drv_context *ctx,
 
     ret = uart_drv_get(ctx);
     if (ret < 0) {
-        SYS_LOG_WRN("uart_drv_get returned %d", ret);
+        LOG_WRN("uart_drv_get returned %d", ret);
         return ret;
     }
 

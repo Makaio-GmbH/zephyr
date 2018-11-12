@@ -6,9 +6,8 @@
 
 #include <shell/shell_rtt.h>
 #include <init.h>
-#include <rtt/SEGGER_RTT.h>
 #include <logging/sys_log.h>
-
+#include "rtt/SEGGER_RTT.h"
 SHELL_RTT_DEFINE(shell_transport_rtt);
 SHELL_DEFINE(rtt_shell, "rtt:~$ ", &shell_transport_rtt, 10,
 	     SHELL_FLAG_OLF_CRLF);

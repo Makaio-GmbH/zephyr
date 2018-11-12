@@ -12,12 +12,13 @@
 #include <gpio.h>
 #include <device.h>
 #include <init.h>
-#include <logging/sys_log.h>
 #include <drivers/generic_uart/generic_uart_drv.h>
 #include <string.h>
 #include <net/buf.h>
 #include <misc/stack.h>
 
+#include <logging/log.h>
+LOG_MODULE_REGISTER(uart_generic, 4);
 //#undef CONFIG_NET_BUF
 
 
@@ -101,12 +102,12 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
     memcpy(&data[buff_len], dev_ctx->linebreak_constant,  dev_ctx->linebreak_len);
 
 
-    SYS_LOG_DBG("OUT: [%s]", cmd);
+    LOG_DBG("OUT: [%s]", cmd);
 
     uart_drv_send(&dev_ctx->drv_ctx, data, strlen(data));
 
     k_free(data);
-    SYS_LOG_DBG("Sent");
+    LOG_DBG("Sent");
 
     if (timeout == K_NO_WAIT) {
         return 0;
@@ -114,7 +115,7 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
 
     if(dev_ctx->cmd_resp_handler)
     {
-        SYS_LOG_WRN("Trying to assign new response handler while previous handler is still waiting");
+        LOG_WRN("Trying to assign new response handler while previous handler is still waiting");
         ret = -EAGAIN;
     } else {
         dev_ctx->cmd_resp_handler = response_handler;
@@ -125,7 +126,7 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
         ret = k_sem_take(&dev_ctx->response_sem, timeout);
         if(ret != 0)
         {
-            SYS_LOG_DBG("Sem timed out");
+            LOG_DBG("Sem timed out");
         }
     /*   }  TODO: implement sock and transform to CHANNEL or so
  else {
@@ -250,7 +251,7 @@ static void uart_dev_read_rx(struct net_buf **buf)
 		if (!*buf) {
 			*buf = net_buf_alloc(&uart_drv_recv_pool, NETBUF_ALLOC_TIMEOUT);
 			if (!*buf) {
-				SYS_LOG_ERR("Can't allocate RX data! "
+				LOG_ERR("Can't allocate RX data! "
 					    "Skipping data!");
 				break;
 			}
@@ -261,7 +262,7 @@ static void uart_dev_read_rx(struct net_buf **buf)
 					      read_rx_allocator,
 					      &uart_drv_recv_pool);
 		if (rx_len < bytes_read) {
-			SYS_LOG_ERR("Data was lost! read %u of %u!",
+			LOG_ERR("Data was lost! read %u of %u!",
 				    rx_len, bytes_read);
 		}
 	}
@@ -301,7 +302,7 @@ static void uart_dev_rx(void)
 				if (net_buf_ncmp(rx_buf, handlers[i].cmd,
 						 *handlers[i].cmd_len) == 0) {
 					/* found a matching handler */
-					SYS_LOG_DBG("MATCH %s (len:%u)",
+					LOG_DBG("MATCH %s (len:%u)",
 						    handlers[i].cmd, len);
 
 					/* skip cmd_len */
@@ -377,7 +378,7 @@ static size_t uart_dev_read_rx(struct uart_dev_ctx *ictx, u8_t* uart_buffer)
 static int uart_dev_process_line(struct uart_dev_ctx *ictx, char line[], u16_t line_len)
 {
 
-    SYS_LOG_DBG("[%s] IN (%u b): [%s]", ictx->drv_ctx.uart_dev->config->name, strlen(line), line);
+    LOG_DBG("[%s] IN (%u b): [%s]", ictx->drv_ctx.uart_dev->config->name, strlen(line), log_strdup(line));
 
 
     int ret_handled = 1;
@@ -387,7 +388,7 @@ static int uart_dev_process_line(struct uart_dev_ctx *ictx, char line[], u16_t l
         if(ictx->cmd_resp_handler)
         {
             ret_handled = ictx->cmd_resp_handler(line, line_len);
-            SYS_LOG_DBG("cmd_resp_handler returned %u", ret_handled);
+            LOG_DBG("cmd_resp_handler returned %u", ret_handled);
             if(ret_handled == 0)
             {
                 ictx->cmd_resp_handler = NULL;
@@ -477,18 +478,18 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
 
                             if(ret_handled == 0)
                             {
-								SYS_LOG_DBG("Prio is %d", k_thread_priority_get(k_current_get()));
-                                SYS_LOG_WRN("UART handled");
+								LOG_DBG("Prio is %d", k_thread_priority_get(k_current_get()));
+                                LOG_WRN("UART handled");
                                 // TODO if (!sock) {
-                                SYS_LOG_DBG("give response_sem");
+                                LOG_DBG("give response_sem");
                                 k_sem_give(&ictx->response_sem);
-                                SYS_LOG_DBG("%s Sem count (%u)", ictx->drv_ctx.uart_dev->config->name,
+                                LOG_DBG("%s Sem count (%u)", ictx->drv_ctx.uart_dev->config->name,
                                         k_sem_count_get(&ictx->response_sem));
                                 //} else {
                                 //    k_sem_give(&sock->sock_send_sem);
                                 //}
                             } else {
-                                SYS_LOG_WRN("UART not handled");
+                                LOG_WRN("UART not handled");
                             }
                             k_free(chunk);
                         }
@@ -547,7 +548,7 @@ int uart_dev_init(struct uart_dev_ctx *dev_ctx, struct device *uart_dev)
         ictx.gpio_port_dev[i] =
                 device_get_binding(pinconfig[i].dev_name);
         if (!ictx.gpio_port_dev[i]) {
-            SYS_LOG_ERR("gpio port (%s) not found!",
+            LOG_ERR("gpio port (%s) not found!",
                         pinconfig[i].dev_name);
             return -ENODEV;
         }
@@ -561,7 +562,7 @@ int uart_dev_init(struct uart_dev_ctx *dev_ctx, struct device *uart_dev)
                                 dev_ctx->recv_buf, sizeof(dev_ctx->recv_buf));
 
     if (ret < 0) {
-        SYS_LOG_ERR("Error registering modem receiver (%d)!", ret);
+        LOG_ERR("Error registering modem receiver (%d)!", ret);
         goto error;
     }
     /* start RX thread */
