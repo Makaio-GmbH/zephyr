@@ -371,7 +371,6 @@ SECTIONS
     _data_start = ABSOLUTE(.);
     *(.data)
     *(.data.*)
-    KEEP(*(SW_ISR_TABLE))
     *(.gnu.linkonce.d.*)
     KEEP(*(.gnu.linkonce.d.*personality*))
     *(.data1)
@@ -382,6 +381,8 @@ SECTIONS
     *(.sdata2.*)
     *(.gnu.linkonce.s2.*)
     KEEP(*(.jcr))
+    . = ALIGN(4096);
+    *(.gna_model)
     _data_end = ABSOLUTE(.);
   } >data :data_phdr
   .lit4 : ALIGN(4)

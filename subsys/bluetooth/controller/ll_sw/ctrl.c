@@ -163,8 +163,6 @@ static struct {
 	u32_t ticks_anchor;
 	u32_t remainder_anchor;
 
-	u8_t  is_k32src_stable;
-
 	u8_t  volatile ticker_id_prepare;
 	u8_t  volatile ticker_id_event;
 	u8_t  volatile ticker_id_stop;
@@ -4648,27 +4646,26 @@ static void mayfly_xtal_stop(void *params)
 	DEBUG_RADIO_CLOSE(0);
 }
 
-#define DRV_NAME CONFIG_CLOCK_CONTROL_NRF5_K32SRC_DRV_NAME
-#define K32SRC   CLOCK_CONTROL_NRF5_K32SRC
 static void k32src_wait(void)
 {
-	if (!_radio.is_k32src_stable) {
-		struct device *clk_k32;
+	static bool done;
 
-		_radio.is_k32src_stable = 1;
+	if (done) {
+		return;
+	}
+	done = true;
 
-		clk_k32 = device_get_binding(DRV_NAME);
-		LL_ASSERT(clk_k32);
+	struct device *lf_clock = device_get_binding(
+		CONFIG_CLOCK_CONTROL_NRF5_K32SRC_DRV_NAME);
 
-		while (clock_control_on(clk_k32, (void *)K32SRC)) {
-			DEBUG_CPU_SLEEP(1);
-			cpu_sleep();
-			DEBUG_CPU_SLEEP(0);
-		}
+	LL_ASSERT(lf_clock);
+
+	while (clock_control_on(lf_clock, (void *)CLOCK_CONTROL_NRF5_K32SRC)) {
+		DEBUG_CPU_SLEEP(1);
+		cpu_sleep();
+		DEBUG_CPU_SLEEP(0);
 	}
 }
-#undef K32SRC
-#undef DRV_NAME
 
 #if defined(CONFIG_BT_CTLR_XTAL_ADVANCED)
 #define XON_BITMASK BIT(31) /* XTAL has been retained from previous prepare */
@@ -4897,9 +4894,15 @@ static void mayfly_xtal_stop_calc(void *params)
 
 	/* Compensate for next ticker in reduced prepare */
 	if (hdr_next->ticks_xtal_to_start & XON_BITMASK) {
-		ticks_to_expire -=
-			(hdr_next->ticks_xtal_to_start &
-			 ~XON_BITMASK) - ticks_prepare_to_start_next;
+		u32_t ticks_reduced = (hdr_next->ticks_xtal_to_start &
+				       ~XON_BITMASK) -
+				      ticks_prepare_to_start_next;
+
+		if (ticks_to_expire > ticks_reduced) {
+			ticks_to_expire -= ticks_reduced;
+		} else {
+			ticks_to_expire = 0;
+		}
 	}
 
 	/* If beyond the xtal threshold reset to normal the next prepare,
@@ -10725,8 +10728,8 @@ u32_t ll_connect_disable(void **node_rx)
 	return status;
 }
 
-u32_t ll_conn_update(u16_t handle, u8_t cmd, u8_t status, u16_t interval,
-		     u16_t latency, u16_t timeout)
+u32_t ll_conn_update(u16_t handle, u8_t cmd, u8_t status, u16_t interval_min,
+		     u16_t interval_max, u16_t latency, u16_t timeout)
 {
 	struct connection *conn;
 
@@ -10759,7 +10762,7 @@ u32_t ll_conn_update(u16_t handle, u8_t cmd, u8_t status, u16_t interval,
 
 		conn->llcp.conn_upd.win_size = 1;
 		conn->llcp.conn_upd.win_offset_us = 0;
-		conn->llcp.conn_upd.interval = interval;
+		conn->llcp.conn_upd.interval = interval_max;
 		conn->llcp.conn_upd.latency = latency;
 		conn->llcp.conn_upd.timeout = timeout;
 		/* conn->llcp.conn_upd.instant     = 0; */
@@ -10790,8 +10793,8 @@ u32_t ll_conn_update(u16_t handle, u8_t cmd, u8_t status, u16_t interval,
 			}
 
 			conn->llcp_conn_param.status = 0;
-			conn->llcp_conn_param.interval_min = interval;
-			conn->llcp_conn_param.interval_max = interval;
+			conn->llcp_conn_param.interval_min = interval_min;
+			conn->llcp_conn_param.interval_max = interval_max;
 			conn->llcp_conn_param.latency = latency;
 			conn->llcp_conn_param.timeout = timeout;
 			conn->llcp_conn_param.state = cmd;

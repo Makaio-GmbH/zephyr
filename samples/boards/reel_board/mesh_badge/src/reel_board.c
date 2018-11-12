@@ -343,7 +343,8 @@ static void epd_update(struct k_work *work)
 		return;
 	}
 
-	strncpy(buf, bt_get_name(), sizeof(buf));
+	strncpy(buf, bt_get_name(), sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
 
 	/* Convert commas to newlines */
 	for (i = 0; buf[i] != '\0'; i++) {
@@ -407,7 +408,7 @@ static int configure_button(void)
 {
 	static struct gpio_callback button_cb;
 
-	gpio = device_get_binding(GPIO_KEYS_BUTTON_0_GPIO_CONTROLLER);
+	gpio = device_get_binding(SW0_GPIO_CONTROLLER);
 	if (!gpio) {
 		return -ENODEV;
 	}

@@ -32,9 +32,6 @@ echo-server directory:
 - :file:`prj.conf`
   Generic config file, normally you should use this.
 
-- :file:`overlay-frdm_k64f_cc2520.conf`
-  This overlay config enables support for IEEE 802.15.4 CC2520 and frdm_k64f
-
 - :file:`overlay-frdm_k64f_mcr20a.conf`
   This overlay config enables support for IEEE 802.15.4 mcr20a and frdm_k64f
 
@@ -54,6 +51,10 @@ echo-server directory:
 - :file:`overlay-qemu_802154.conf`
   This overlay config enables support for two QEMU's when simulating
   IEEE 802.15.4 network that are connected together.
+
+- :file:`overlay-reel_board-15_4.conf`
+  This overlay config enables support for IEEE 802.15.4 chip on the
+  reel_board.
 
 - :file:`overlay-tls.conf`
   This overlay config enables support for TLS.
