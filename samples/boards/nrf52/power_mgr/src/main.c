@@ -46,7 +46,7 @@ create_device_list();
 	//gpio_in = device_get_binding(PORT);
 
 //#ifdef CONFIG_GPIO
-	struct device *gpioa = device_get_binding(CONFIG_GPIO_P0_DEV_NAME);
+	struct device *gpioa = device_get_binding(DT_GPIO_P0_DEV_NAME);
 	gpio_pin_configure(gpioa, 17, GPIO_DIR_OUT);
 	gpio_pin_write(gpioa, 17, 1);
 //#endif

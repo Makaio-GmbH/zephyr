@@ -4,4 +4,4 @@ project(nrf52_power_mgr)
 
 FILE(GLOB app_sources src/main.c)
 target_sources(app PRIVATE ${app_sources})
-zephyr_sources_ifdef(CONFIG_PM_CONTROL_APP src/powermgt/device.c src/powermgt/power.c)
+zephyr_sources_ifdef(CONFIG_PM_CONTROL_APP src/device.c src/power.c)
