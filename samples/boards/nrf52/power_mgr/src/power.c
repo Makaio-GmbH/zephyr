@@ -10,6 +10,7 @@
 #define TICKS_TO_SECONDS_MULTIPLIER 1000
 #define TIME_UNIT_STRING "milliseconds"
 
+
 #define MIN_TIME_TO_SUSPEND	((SECONDS_TO_SLEEP * \
 				  TICKS_TO_SECONDS_MULTIPLIER) - \
 				  (TICKS_TO_SECONDS_MULTIPLIER / 2))
@@ -46,7 +47,7 @@ static int pm_policy_get_state(s32_t ticks)
 	if ((ticks != K_FOREVER) && ticks <= LPS_MAX_THR) {
 		return SYS_POWER_STATE_CPU_LPS;
 	} else if ((ticks > LPS_MAX_THR) &&
-			(ticks <= LPS_1_MAX_THR)) {
+			   (ticks <= LPS_1_MAX_THR)) {
 		return SYS_POWER_STATE_CPU_LPS_1;
 	} else {
 		return SYS_POWER_STATE_DEEP_SLEEP;
@@ -87,7 +88,7 @@ static int low_power_suspend_entry(void)
 	/* Save device states and turn off peripherals as necessary */
 	suspend_devices();
 	_sys_soc_set_power_state(SYS_POWER_STATE_DEEP_SLEEP);
-	 /* Exiting from Deep Sleep State */
+	/* Exiting from Deep Sleep State */
 	low_power_suspend_exit();
 
 	return SYS_PM_DEEP_SLEEP;
@@ -108,27 +109,27 @@ int _sys_soc_suspend(s32_t ticks)
 
 	if ((ticks != K_FOREVER) && (ticks < MIN_TIME_TO_SUSPEND)) {
 		printk("Not enough time for PM operations " TIME_UNIT_STRING
-							" : %d).\n", ticks);
+			   " : %d / %d).\n", ticks, MIN_TIME_TO_SUSPEND);
 		return SYS_PM_NOT_HANDLED;
 	}
 
 	pm_state = pm_policy_get_state(ticks);
 
 	switch (pm_state) {
-	case SYS_POWER_STATE_CPU_LPS:
-	case SYS_POWER_STATE_CPU_LPS_1:
-		/* Do CPU LPS operations */
-		ret = low_power_state_entry();
-		break;
-	case SYS_POWER_STATE_DEEP_SLEEP:
-		/* Do Low Power Suspend operations */
-		ret = low_power_suspend_entry();
-		break;
-	default:
-		/* No PM operations */
-		printk("\nNo PM operations done\n");
-		ret = SYS_PM_NOT_HANDLED;
-		break;
+		case SYS_POWER_STATE_CPU_LPS:
+		case SYS_POWER_STATE_CPU_LPS_1:
+			/* Do CPU LPS operations */
+			ret = low_power_state_entry();
+			break;
+		case SYS_POWER_STATE_DEEP_SLEEP:
+			/* Do Low Power Suspend operations */
+			ret = low_power_suspend_entry();
+			break;
+		default:
+			/* No PM operations */
+			printk("\nNo PM operations done\n");
+			ret = SYS_PM_NOT_HANDLED;
+			break;
 	}
 
 	if (ret != SYS_PM_NOT_HANDLED) {
@@ -138,7 +139,7 @@ int _sys_soc_suspend(s32_t ticks)
 		 */
 		if (!post_ops_done) {
 			if ((pm_state == SYS_POWER_STATE_CPU_LPS_1) ||
-					(pm_state == SYS_POWER_STATE_CPU_LPS)) {
+				(pm_state == SYS_POWER_STATE_CPU_LPS)) {
 				low_power_state_exit();
 			}
 			post_ops_done = 1;

@@ -104,29 +104,52 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
 
     LOG_DBG("OUT: [%s]", cmd);
 
+
+    LOG_DBG("Reset sem");
+    k_sem_reset(&dev_ctx->response_sem);
+
+
+
+    LOG_DBG("2");
+    if(dev_ctx->cmd_resp_handler)
+    {
+        LOG_DBG("3");
+        k_sleep(100);
+        LOG_WRN("Trying to assign new response handler while previous handler is still waiting");
+    } else {
+        LOG_DBG("4");
+        k_sleep(100);
+
+    }
+    if(response_handler)
+    {
+        LOG_DBG("ASsigning response handler");
+        dev_ctx->cmd_resp_handler = response_handler;
+    } else {
+        LOG_DBG("No response handler");
+    }
+
     uart_drv_send(&dev_ctx->drv_ctx, data, strlen(data));
 
     k_free(data);
     LOG_DBG("Sent");
 
     if (timeout == K_NO_WAIT) {
+        LOG_DBG("Not waiting");
         return 0;
     }
 
-    if(dev_ctx->cmd_resp_handler)
-    {
-        LOG_WRN("Trying to assign new response handler while previous handler is still waiting");
-        ret = -EAGAIN;
-    } else {
-        dev_ctx->cmd_resp_handler = response_handler;
-    }
 
     //if (!sock) {
-        k_sem_reset(&dev_ctx->response_sem);
+    LOG_DBG("Prio is %d", k_thread_priority_get(k_current_get()));
+    LOG_DBG("Taking sem");
         ret = k_sem_take(&dev_ctx->response_sem, timeout);
+    LOG_DBG("Taken sem");
         if(ret != 0)
         {
             LOG_DBG("Sem timed out");
+            dev_ctx->cmd_resp_handler = NULL;
+            //k_sem_reset(&dev_ctx->response_sem); // TODO: Right?
         }
     /*   }  TODO: implement sock and transform to CHANNEL or so
  else {
@@ -134,6 +157,7 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
          ret = k_sem_take(&sock->sock_send_sem, timeout);
      }
  */
+    LOG_DBG("After sem");
     if (ret == 0) {
         ret = dev_ctx->last_error;
     } else if (ret == -EAGAIN) {
@@ -377,6 +401,8 @@ static size_t uart_dev_read_rx(struct uart_dev_ctx *ictx, u8_t* uart_buffer)
 
 static int uart_dev_process_line(struct uart_dev_ctx *ictx, char line[], u16_t line_len)
 {
+	if(strlen(line) == 0)
+		return 1;
 
     LOG_DBG("[%s] IN (%u b): [%s]", ictx->drv_ctx.uart_dev->config->name, strlen(line), log_strdup(line));
 
@@ -393,6 +419,8 @@ static int uart_dev_process_line(struct uart_dev_ctx *ictx, char line[], u16_t l
             {
                 ictx->cmd_resp_handler = NULL;
             }
+        } else {
+            LOG_WRN("No response handler found");
         }
 
     }
@@ -417,7 +445,6 @@ static int uart_dev_process_line(struct uart_dev_ctx *ictx, char line[], u16_t l
         {
             ret_handled = ictx->generic_resp_handler(line, line_len);
         }
-
     }
 
     return ret_handled;
@@ -435,10 +462,11 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
     u16_t test_line_len = 0;
 
 
-
+    LOG_DBG("uart_dev_rx Prio is %d", k_thread_priority_get(k_current_get()));
 
     while (ret == 0) {
 
+        LOG_DBG("Taking RX sem");
         k_sem_take(&ictx->drv_ctx.rx_sem, K_FOREVER);
 
         bytes_read = uart_dev_read_rx(ictx, uart_buffer);
@@ -446,6 +474,7 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
 
         while (bytes_read) {
 
+            LOG_DBG("Bytes received");
             //_hexdump(uart_buffer, bytes_read);
             memcpy(&temp_buffer[line_len], &uart_buffer, bytes_read);
 
@@ -469,6 +498,7 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
                     if(memcmp(&temp_buffer[char_idx],ictx->linebreak_constant, ictx->linebreak_len) == 0)
                     {
                         u16_t chunk_len = char_idx-chunk_start_idx;
+
                         if(chunk_len > 0)
                         {
                             char* chunk = k_malloc(chunk_len);
@@ -479,7 +509,7 @@ static void uart_dev_rx(struct uart_dev_ctx *ictx)
                             if(ret_handled == 0)
                             {
 								LOG_DBG("Prio is %d", k_thread_priority_get(k_current_get()));
-                                LOG_WRN("UART handled");
+                                LOG_DBG("UART handled");
                                 // TODO if (!sock) {
                                 LOG_DBG("give response_sem");
                                 k_sem_give(&ictx->response_sem);

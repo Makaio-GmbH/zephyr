@@ -103,6 +103,12 @@ hf_already_started:
 	}
 }
 
+static int _k32src_stop(struct device *dev, clock_control_subsys_t sub_system)
+{
+	ARG_UNUSED(sub_system);
+	nrf_clock_task_trigger(NRF_CLOCK_TASK_LFCLKSTOP);
+	return 0;
+}
 static int _m16src_stop(struct device *dev, clock_control_subsys_t sub_system)
 {
 	u32_t imask;
@@ -438,7 +444,7 @@ DEVICE_AND_API_INIT(clock_nrf5_m16src,
 
 static const struct clock_control_driver_api _k32src_clock_control_api = {
 	.on = _k32src_start,
-	.off = NULL,
+	.off = _k32src_stop,
 	.get_rate = NULL,
 };
 

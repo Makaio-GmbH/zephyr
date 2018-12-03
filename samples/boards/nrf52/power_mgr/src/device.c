@@ -19,24 +19,23 @@ static char device_ordered_list[DEVICE_POLICY_MAX];
 static char device_retval[DEVICE_POLICY_MAX];
 
 /* Initialize and configure GPIO */
+/*
 void gpio_setup(void)
 {
 
 	gpiob = device_get_binding(PORT);
 
-	/* Configure button 1 as deep sleep trigger event */
 	gpio_pin_configure(gpiob, BUTTON_1, GPIO_DIR_IN
-				| GPIO_PUD_PULL_UP);
+										| GPIO_PUD_PULL_UP);
 
-	/* Configure button 2 as wake source from deep sleep */
 	gpio_pin_configure(gpiob, BUTTON_2, GPIO_DIR_IN
-				| GPIO_PUD_PULL_UP
-				| GPIO_INT | GPIO_INT_LEVEL
-				| GPIO_CFG_SENSE_LOW);
+										| GPIO_PUD_PULL_UP
+										| GPIO_INT | GPIO_INT_LEVEL
+										| GPIO_CFG_SENSE_LOW);
 
 	gpio_pin_enable_callback(gpiob, BUTTON_2);
 }
-
+*/
 void suspend_devices(void)
 {
 
@@ -48,7 +47,7 @@ void suspend_devices(void)
 		 * if(device_busy_check(&device_list[idx])) {do something}
 		 */
 		device_retval[i] = device_set_power_state(&device_list[idx],
-						DEVICE_PM_SUSPEND_STATE);
+												  DEVICE_PM_SUSPEND_STATE);
 	}
 }
 
@@ -61,7 +60,7 @@ void resume_devices(void)
 			int idx = device_ordered_list[i];
 
 			device_set_power_state(&device_list[idx],
-						DEVICE_PM_ACTIVE_STATE);
+								   DEVICE_PM_ACTIVE_STATE);
 		}
 	}
 }
@@ -80,18 +79,17 @@ void create_device_list(void)
 	 * in the beginning of the list will be resumed first.
 	 */
 	device_list_get(&device_list, &count);
-	device_count = 3; /* Reserve for 32KHz, 16MHz, system clock, and uart */
+	device_count = 4; /* Reserve for 32KHz, 16MHz, system clock, and uart */
 
 	for (i = 0; (i < count) && (device_count < DEVICE_POLICY_MAX); i++) {
-		/*if (!strcmp(device_list[i].config->name, "clk_k32src")) {
+		if (!strcmp(device_list[i].config->name, "clk_k32src")) {
 			device_ordered_list[0] = i;
-		} else*/
-		if (!strcmp(device_list[i].config->name, "clk_m16src")) {
-			device_ordered_list[0] = i;
-		} else if (!strcmp(device_list[i].config->name, "sys_clock")) {
+		} else if (!strcmp(device_list[i].config->name, "clk_m16src")) {
 			device_ordered_list[1] = i;
-		} else if (!strcmp(device_list[i].config->name, "UART_0")) {
+		} else if (!strcmp(device_list[i].config->name, "sys_clock")) {
 			device_ordered_list[2] = i;
+		} else if (!strcmp(device_list[i].config->name, "UART_0")) {
+			device_ordered_list[3] = i;
 		} else {
 			device_ordered_list[device_count++] = i;
 		}

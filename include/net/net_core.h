@@ -34,7 +34,7 @@ extern "C" {
  */
 
 /* Network subsystem logging helpers */
-
+#ifdef CONFIG_NET_DEFAULT_LOG_LEVEL
 #if !defined(LOG_LEVEL)
 #if !defined(NET_LOG_LEVEL)
 #define NET_LOG_LEVEL CONFIG_NET_DEFAULT_LOG_LEVEL
@@ -44,6 +44,8 @@ extern "C" {
 #undef NET_LOG_LEVEL
 #define NET_LOG_LEVEL CONFIG_NET_MAX_LOG_LEVEL
 #endif /* NET_LOG_LEVEL > CONFIG_NET_MAX_LOG_LEVEL */
+
+
 
 #define LOG_LEVEL NET_LOG_LEVEL
 #endif /* !LOG_LEVEL */
@@ -245,6 +247,8 @@ static inline void net_analyze_stack(const char *name,
 #define NET_TC_RX_COUNT 1
 #define NET_TC_COUNT 1
 #endif /* CONFIG_NET_TC_TX_COUNT && CONFIG_NET_TC_RX_COUNT */
+
+#endif
 
 /**
  * @}

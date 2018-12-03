@@ -20,6 +20,16 @@
 void gpio_setup(void);
 void create_device_list(void);
 
+void sys_pm_notify_lps_entry(enum power_states state)
+{
+
+}
+
+void sys_pm_notify_lps_exit(enum power_states state)
+{
+
+}
+
 /* Application main Thread */
 void main(void)
 {
@@ -30,10 +40,34 @@ void main(void)
 	printk(DEMO_DESCRIPTION);
 
 	//gpio_setup();
-
-	create_device_list();
-
+#ifdef CONFIG_PM_CONTROL_APP
+create_device_list();
+#endif
 	//gpio_in = device_get_binding(PORT);
+
+//#ifdef CONFIG_GPIO
+	struct device *gpioa = device_get_binding(CONFIG_GPIO_P0_DEV_NAME);
+	gpio_pin_configure(gpioa, 17, GPIO_DIR_OUT);
+	gpio_pin_write(gpioa, 17, 1);
+//#endif
+	//struct device *gpioa = device_get_binding(CONFIG_GPIO_P0_DEV_NAME);
+
+	// disable modem
+	/*
+	u32_t statValue = 0;
+	gpio_pin_configure(gpioa, 2, GPIO_DIR_IN);
+	gpio_pin_read(gpioa, 2, &statValue);
+	if(statValue > 0)
+	{
+		gpio_pin_write(gpioa, 16, 0);
+		k_busy_wait(50);
+		gpio_pin_write(gpioa, 16, 1);
+	}*/
+
+	// disable spi flash
+	//gpio_pin_configure(gpioa, 17, GPIO_DIR_OUT);
+	//gpio_pin_write(gpioa, 17, 1);
+
 
 	for (int i = 1; i <= 4; i++) {
 		printk("\n<-- App doing busy wait for 10 Sec -->\n");
@@ -51,7 +85,7 @@ void main(void)
 	}
 
 	printk("\nPress BUTTON1 to enter into Deep Dleep state..."
-			"Press BUTTON2 to exit Deep Sleep state\n");
+		   "Press BUTTON2 to exit Deep Sleep state\n");
 	while (1) {
 		gpio_pin_read(gpio_in, BUTTON_1, &level);
 		if (level == LOW) {

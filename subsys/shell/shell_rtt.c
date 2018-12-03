@@ -27,7 +27,7 @@ static void shell_rtt_rx_process(struct shell_rtt *sh_rtt)
 			sh_rtt->handler(SHELL_TRANSPORT_EVT_RX_RDY, sh_rtt->context);
 		}
 
-		k_sleep(K_MSEC(10));
+		k_sleep(K_MSEC(1000));
 	}
 }
 

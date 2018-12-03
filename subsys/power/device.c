@@ -23,13 +23,14 @@ LOG_MODULE_DECLARE(power);
  */
 #ifdef CONFIG_SOC_SERIES_NRF52X
 #define MAX_PM_DEVICES	15
-#define NUM_CORE_DEVICES	4
+#define NUM_CORE_DEVICES	5
 #define MAX_DEV_NAME_LEN	16
 static const char core_devices[NUM_CORE_DEVICES][MAX_DEV_NAME_LEN] = {
 	"clk_k32src",
 	"clk_m16src",
 	"sys_clock",
 	"UART_0",
+	"UART_1",
 };
 #else
 #error "Add SoC's core devices list for PM"

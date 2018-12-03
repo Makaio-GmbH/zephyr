@@ -148,9 +148,9 @@ int uart_drv_send(struct uart_drv_context *ctx,
 
     while (size)  {
         int written;
-
         written = uart_fifo_fill(ctx->uart_dev,
                                  (const u8_t *)buf, size);
+
         if (written < 0) {
             /* error */
             uart_irq_tx_disable(ctx->uart_dev);
