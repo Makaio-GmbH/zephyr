@@ -54,7 +54,7 @@ enum mdm_control_pins {
 	MDM_KEEP_AWAKE,
 	MDM_RESET,
 	SHLD_3V3_1V8_SIG_TRANS_ENA,
-#ifdef CONFIG_WNCM14A2A_GPIO_MDM_SEND_OK_PIN
+#ifdef DT_WNCM14A2A_GPIO_MDM_SEND_OK_PIN
 	MDM_SEND_OK,
 #endif
 	MAX_MDM_CONTROL_PINS,
@@ -62,33 +62,33 @@ enum mdm_control_pins {
 
 static const struct mdm_control_pinconfig pinconfig[] = {
 	/* MDM_BOOT_MODE_SEL */
-	PINCONFIG(CONFIG_WNCM14A2A_GPIO_MDM_BOOT_MODE_SEL_NAME,
-		  CONFIG_WNCM14A2A_GPIO_MDM_BOOT_MODE_SEL_PIN),
+	PINCONFIG(DT_WNCM14A2A_GPIO_MDM_BOOT_MODE_SEL_NAME,
+		  DT_WNCM14A2A_GPIO_MDM_BOOT_MODE_SEL_PIN),
 
 	/* MDM_POWER */
-	PINCONFIG(CONFIG_WNCM14A2A_GPIO_MDM_POWER_NAME,
-		  CONFIG_WNCM14A2A_GPIO_MDM_POWER_PIN),
+	PINCONFIG(DT_WNCM14A2A_GPIO_MDM_POWER_NAME,
+		  DT_WNCM14A2A_GPIO_MDM_POWER_PIN),
 
 	/* MDM_KEEP_AWAKE */
-	PINCONFIG(CONFIG_WNCM14A2A_GPIO_MDM_KEEP_AWAKE_NAME,
-		  CONFIG_WNCM14A2A_GPIO_MDM_KEEP_AWAKE_PIN),
+	PINCONFIG(DT_WNCM14A2A_GPIO_MDM_KEEP_AWAKE_NAME,
+		  DT_WNCM14A2A_GPIO_MDM_KEEP_AWAKE_PIN),
 
 	/* MDM_RESET */
-	PINCONFIG(CONFIG_WNCM14A2A_GPIO_MDM_RESET_NAME,
-		  CONFIG_WNCM14A2A_GPIO_MDM_RESET_PIN),
+	PINCONFIG(DT_WNCM14A2A_GPIO_MDM_RESET_NAME,
+		  DT_WNCM14A2A_GPIO_MDM_RESET_PIN),
 
 	/* SHLD_3V3_1V8_SIG_TRANS_ENA */
-	PINCONFIG(CONFIG_WNCM14A2A_GPIO_MDM_SHLD_TRANS_ENA_NAME,
-		  CONFIG_WNCM14A2A_GPIO_MDM_SHLD_TRANS_ENA_PIN),
+	PINCONFIG(DT_WNCM14A2A_GPIO_MDM_SHLD_TRANS_ENA_NAME,
+		  DT_WNCM14A2A_GPIO_MDM_SHLD_TRANS_ENA_PIN),
 
-#ifdef CONFIG_WNCM14A2A_GPIO_MDM_SEND_OK_PIN
+#ifdef DT_WNCM14A2A_GPIO_MDM_SEND_OK_PIN
 	/* MDM_SEND_OK */
-	PINCONFIG(CONFIG_WNCM14A2A_GPIO_MDM_SEND_OK_NAME,
-		  CONFIG_WNCM14A2A_GPIO_MDM_SEND_OK_PIN),
+	PINCONFIG(DT_WNCM14A2A_GPIO_MDM_SEND_OK_NAME,
+		  DT_WNCM14A2A_GPIO_MDM_SEND_OK_PIN),
 #endif
 };
 
-#define MDM_UART_DEV_NAME		CONFIG_WNCM14A2A_UART_DRV_NAME
+#define MDM_UART_DEV_NAME		DT_WNCM14A2A_UART_DRV_NAME
 
 #define MDM_BOOT_MODE_SPECIAL		0
 #define MDM_BOOT_MODE_NORMAL		1
@@ -153,7 +153,6 @@ struct wncm14a2a_socket {
 	struct sockaddr dst;
 
 	int socket_id;
-	bool socket_reading;
 
 	/** semaphore */
 	struct k_sem sock_send_sem;
@@ -826,7 +825,7 @@ static void on_cmd_sockread(struct net_buf **buf, u16_t len)
 	sock->recv_pkt = net_pkt_get_rx(sock->context, BUF_ALLOC_TIMEOUT);
 	if (!sock->recv_pkt) {
 		LOG_ERR("Failed net_pkt_get_reserve_rx!");
-		goto cleanup;
+		return;
 	}
 
 	/* set pkt data */
@@ -839,7 +838,7 @@ static void on_cmd_sockread(struct net_buf **buf, u16_t len)
 		LOG_ERR("Failed net_pkt_get_frag!");
 		net_pkt_unref(sock->recv_pkt);
 		sock->recv_pkt = NULL;
-		goto cleanup;
+		return;
 	}
 
 	net_pkt_frag_add(sock->recv_pkt, frag);
@@ -866,7 +865,7 @@ static void on_cmd_sockread(struct net_buf **buf, u16_t len)
 				LOG_ERR("Unable to add data! Aborting!");
 				net_pkt_unref(sock->recv_pkt);
 				sock->recv_pkt = NULL;
-				goto cleanup;
+				return;
 			}
 
 			c = 0;
@@ -896,9 +895,6 @@ static void on_cmd_sockread(struct net_buf **buf, u16_t len)
 	 * case the app takes a long time.
 	 */
 	k_work_submit_to_queue(&wncm14a2a_workq, &sock->recv_cb_work);
-
-cleanup:
-	sock->socket_reading = false;
 }
 
 /* Handler: @SOCKDATAIND: <socket_id>,<session_status>,<left_bytes> */
@@ -946,23 +942,19 @@ static void on_cmd_sockdataind(struct net_buf **buf, u16_t len)
 	}
 
 	if (left_bytes > 0) {
-		if (!sock->socket_reading) {
-			LOG_DBG("socket_id:%d left_bytes:%d",
-				    socket_id, left_bytes);
+		LOG_DBG("socket_id:%d left_bytes:%d", socket_id, left_bytes);
+		snprintk(sendbuf, sizeof(sendbuf), "AT@SOCKREAD=%d,%d",
+			 sock->socket_id, left_bytes);
 
-			/* TODO: add a timeout to unset this */
-			sock->socket_reading = true;
-			snprintk(sendbuf, sizeof(sendbuf), "AT@SOCKREAD=%d,%d",
-				 sock->socket_id, left_bytes);
-
-			/* We still have a lock from hitting this cmd trigger,
-			 * so don't hold one when we send the new command
-			 */
-			send_at_cmd(sock, sendbuf, K_NO_WAIT);
-		} else {
-			LOG_DBG("SKIPPING socket_id:%d left_bytes:%d",
-				    socket_id, left_bytes);
-		}
+		/* We entered this trigger due to an unsolicited modem response.
+		 * When we send the AT@SOCKREAD command it won't generate an
+		 * "OK" response directly.  The modem will respond with
+		 * "@SOCKREAD ..." and the data requested and then "OK" or
+		 * "ERROR".  Let's not wait here by passing in a timeout to
+		 * send_at_cmd().  Instead, when the resulting response is
+		 * received, we trigger on_cmd_sockread() to handle it.
+		 */
+		send_at_cmd(sock, sendbuf, K_NO_WAIT);
 	}
 }
 
@@ -1256,7 +1248,7 @@ static int modem_pin_init(void)
 	LOG_DBG("MDM_KEEP_AWAKE_PIN -> ENABLED");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_KEEP_AWAKE],
 		       pinconfig[MDM_KEEP_AWAKE].pin, MDM_KEEP_AWAKE_ENABLED);
-#ifdef CONFIG_WNCM14A2A_GPIO_MDM_SEND_OK_PIN
+#ifdef DT_WNCM14A2A_GPIO_MDM_SEND_OK_PIN
 	LOG_DBG("MDM_SEND_OK_PIN -> ENABLED");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_SEND_OK],
 		       pinconfig[MDM_SEND_OK].pin, MDM_SEND_OK_ENABLED);
@@ -1829,7 +1821,6 @@ static void offload_iface_init(struct net_if *iface)
 
 static struct net_if_api api_funcs = {
 	.init	= offload_iface_init,
-	.send	= NULL,
 };
 
 NET_DEVICE_OFFLOAD_INIT(modem_wncm14a2a, "MODEM_WNCM14A2A",

@@ -583,6 +583,8 @@ static void dfu_status_cb(enum usb_dc_status_code status, const u8_t *param)
 	case USB_DC_RESUME:
 		LOG_DBG("USB device resumed");
 		break;
+	case USB_DC_SOF:
+		break;
 	case USB_DC_UNKNOWN:
 	default:
 		LOG_DBG("USB unknown state");
@@ -683,7 +685,7 @@ static int usb_dfu_init(struct device *dev)
 
 	ARG_UNUSED(dev);
 
-	dfu_data.flash_dev = device_get_binding(FLASH_DEV_NAME);
+	dfu_data.flash_dev = device_get_binding(DT_FLASH_DEV_NAME);
 	if (!dfu_data.flash_dev) {
 		LOG_ERR("Flash device not found\n");
 		return -ENODEV;

@@ -7,7 +7,7 @@
  */
 
 #define LOG_MODULE_NAME ieee802154_kw41z
-#define LOG_LEVEL CONFIG_IEEE802154_LOG_LEVEL
+#define LOG_LEVEL CONFIG_IEEE802154_DRIVER_LOG_LEVEL
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
@@ -1008,7 +1008,6 @@ static void kw41z_iface_init(struct net_if *iface)
 
 static struct ieee802154_radio_api kw41z_radio_api = {
 	.iface_api.init	= kw41z_iface_init,
-	.iface_api.send	= ieee802154_radio_send,
 
 	.get_capabilities	= kw41z_get_capabilities,
 	.cca			= kw41z_cca,

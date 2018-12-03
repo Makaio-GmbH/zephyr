@@ -89,10 +89,10 @@ static struct hid_device_info {
 	const struct hid_ops *ops;
 } hid_device;
 
-static void usb_set_hid_report_size(u16_t report_desc_size)
+static void usb_set_hid_report_size(u16_t size)
 {
-	hid_cfg.if0_hid.subdesc[0].wDescriptorLength =
-		sys_cpu_to_le16(report_desc_size);
+	sys_put_le16(size,
+		     (u8_t *)&(hid_cfg.if0_hid.subdesc[0].wDescriptorLength));
 }
 
 static void hid_status_cb(enum usb_dc_status_code status, const u8_t *param)
@@ -121,6 +121,8 @@ static void hid_status_cb(enum usb_dc_status_code status, const u8_t *param)
 			break;
 		case USB_DC_RESUME:
 			LOG_DBG("USB device resumed");
+			break;
+		case USB_DC_SOF:
 			break;
 		case USB_DC_UNKNOWN:
 		default:
@@ -186,8 +188,16 @@ static int hid_custom_handle_req(struct usb_setup_packet *setup,
 	    REQTYPE_GET_RECIP(setup->bmRequestType) ==
 					REQTYPE_RECIP_INTERFACE &&
 					setup->bRequest == REQ_GET_DESCRIPTOR) {
-		switch (setup->wValue) {
-		case 0x2200:
+		u8_t value = sys_le16_to_cpu(setup->wValue) >> 8;
+
+		switch (value) {
+		case HID_CLASS_DESCRIPTOR_HID:
+			LOG_DBG("Return HID Descriptor");
+
+			*len = min(*len, hid_cfg.if0_hid.bLength);
+			*data = (u8_t *)&hid_cfg.if0_hid;
+			break;
+		case HID_CLASS_DESCRIPTOR_REPORT:
 			LOG_DBG("Return Report Descriptor");
 
 			/* Some buggy system may be pass a larger wLength when
@@ -272,7 +282,7 @@ static u8_t interface_data[CONFIG_USB_HID_MAX_PAYLOAD_SIZE];
 
 int usb_hid_init(void)
 {
-	LOG_DBG("Iinitializing HID Device");
+	LOG_DBG("Initializing HID Device");
 
 	/*
 	 * Modify Report Descriptor Size

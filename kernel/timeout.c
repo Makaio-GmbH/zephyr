@@ -84,9 +84,11 @@ void _add_timeout(struct _timeout *to, _timeout_func_t fn, s32_t ticks)
 		if (t == NULL) {
 			sys_dlist_append(&timeout_list, &to->node);
 		}
-	}
 
-	z_clock_set_timeout(_get_next_timeout_expiry(), false);
+		if (to == first()) {
+			z_clock_set_timeout(_get_next_timeout_expiry(), false);
+		}
+	}
 }
 
 int _abort_timeout(struct _timeout *to)
@@ -158,9 +160,9 @@ void z_clock_announce(s32_t ticks)
 	LOCKED(&timeout_lock) {
 		curr_tick += announce_remaining;
 		announce_remaining = 0;
-	}
 
-	z_clock_set_timeout(_get_next_timeout_expiry(), false);
+		z_clock_set_timeout(_get_next_timeout_expiry(), false);
+	}
 }
 
 s32_t _get_next_timeout_expiry(void)
@@ -180,6 +182,17 @@ s32_t _get_next_timeout_expiry(void)
 	}
 #endif
 	return ret;
+}
+
+void z_set_timeout_expiry(s32_t ticks, bool idle)
+{
+	LOCKED(&timeout_lock) {
+		int next = _get_next_timeout_expiry();
+
+		if ((next == K_FOREVER) || (ticks < next)) {
+			z_clock_set_timeout(ticks, idle);
+		}
+	}
 }
 
 int k_enable_sys_clock_always_on(void)

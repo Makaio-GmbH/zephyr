@@ -26,7 +26,7 @@ struct log_strdup_buf {
 #define LOG_STRDUP_POOL_BUFFER_SIZE \
 	(sizeof(struct log_strdup_buf) * CONFIG_LOG_STRDUP_BUF_COUNT)
 
-static const char *log_strdup_fail_msg = "log_strdup pool empty!";
+static const char *log_strdup_fail_msg = "<log_strdup alloc failed>";
 struct k_mem_slab log_strdup_pool;
 static u8_t __noinit __aligned(sizeof(u32_t))
 		log_strdup_pool_buf[LOG_STRDUP_POOL_BUFFER_SIZE];
@@ -446,10 +446,10 @@ static u32_t max_filter_get(u32_t filters)
 	return max_filter;
 }
 
-void log_filter_set(struct log_backend const *const backend,
-		    u32_t domain_id,
-		    u32_t src_id,
-		    u32_t level)
+u32_t log_filter_set(struct log_backend const *const backend,
+		     u32_t domain_id,
+		     u32_t src_id,
+		     u32_t level)
 {
 	assert(src_id < log_sources_count());
 
@@ -460,13 +460,23 @@ void log_filter_set(struct log_backend const *const backend,
 
 		if (backend == NULL) {
 			struct log_backend const *backend;
+			u32_t max = 0;
+			u32_t current;
 
 			for (int i = 0; i < log_backend_count_get(); i++) {
 				backend = log_backend_get(i);
-				log_filter_set(backend, domain_id,
-					       src_id, level);
+				current = log_filter_set(backend, domain_id,
+							 src_id, level);
+				max = max(current, max);
 			}
+
+			level = max;
 		} else {
+			u32_t max = log_filter_get(backend, domain_id,
+						   src_id, false);
+
+			level = min(level, max);
+
 			LOG_FILTER_SLOT_SET(filters,
 					    log_backend_id_get(backend),
 					    level);
@@ -481,6 +491,8 @@ void log_filter_set(struct log_backend const *const backend,
 					    new_aggr_filter);
 		}
 	}
+
+	return level;
 }
 
 static void backend_filter_set(struct log_backend const *const backend,
@@ -541,7 +553,7 @@ char *log_strdup(const char *str)
 	}
 
 	/* Set 'allocated' flag. */
-	atomic_set(&dup->refcount, 1);
+	(void)atomic_set(&dup->refcount, 1);
 
 	strncpy(dup->buf, str, sizeof(dup->buf) - 2);
 	dup->buf[sizeof(dup->buf) - 2] = '~';
@@ -597,7 +609,7 @@ static int enable_logger(struct device *arg)
 	k_thread_create(&logging_thread, logging_stack,
 			K_THREAD_STACK_SIZEOF(logging_stack),
 			log_process_thread_func, NULL, NULL, NULL,
-			CONFIG_LOG_PROCESS_THREAD_PRIO, 0, K_NO_WAIT);
+			K_LOWEST_APPLICATION_THREAD_PRIO, 0, K_NO_WAIT);
 	k_thread_name_set(&logging_thread, "logging");
 #else
 	log_init();

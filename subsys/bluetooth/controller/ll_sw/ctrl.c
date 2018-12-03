@@ -166,6 +166,7 @@ static struct {
 	u8_t  volatile ticker_id_prepare;
 	u8_t  volatile ticker_id_event;
 	u8_t  volatile ticker_id_stop;
+	u8_t  volatile ticker_id_upd;
 
 	enum  role volatile role;
 	enum  state state;
@@ -249,10 +250,12 @@ static u16_t const gc_lookup_ppm[] = { 500, 250, 150, 100, 75, 50, 30, 20 };
 
 static void common_init(void);
 static void ticker_success_assert(u32_t status, void *params);
+static void ticker_update_adv_assert(u32_t status, void *params);
 static void ticker_stop_adv_assert(u32_t status, void *params);
 static void ticker_stop_scan_assert(u32_t status, void *params);
-static void ticker_update_adv_assert(u32_t status, void *params);
 static void ticker_update_slave_assert(u32_t status, void *params);
+static void ticker_stop_slave_assert(u32_t status, void *params);
+static void ticker_start_slave_assert(u32_t status, void *params);
 static void event_inactive(u32_t ticks_at_expire, u32_t remainder,
 			   u16_t lazy, void *context);
 
@@ -4472,6 +4475,14 @@ static void ticker_success_assert(u32_t status, void *params)
 	LL_ASSERT(status == TICKER_STATUS_SUCCESS);
 }
 
+static void ticker_update_adv_assert(u32_t status, void *params)
+{
+	ARG_UNUSED(params);
+
+	LL_ASSERT((status == TICKER_STATUS_SUCCESS) ||
+		  (_radio.ticker_id_stop == RADIO_TICKER_ID_ADV));
+}
+
 static void ticker_stop_adv_assert(u32_t status, void *params)
 {
 	ARG_UNUSED(params);
@@ -4522,20 +4533,27 @@ static void ticker_stop_scan_assert(u32_t status, void *params)
 	}
 }
 
-static void ticker_update_adv_assert(u32_t status, void *params)
-{
-	ARG_UNUSED(params);
-
-	LL_ASSERT((status == TICKER_STATUS_SUCCESS) ||
-		  (_radio.ticker_id_stop == RADIO_TICKER_ID_ADV));
-}
-
 static void ticker_update_slave_assert(u32_t status, void *params)
 {
 	u8_t ticker_id = (u32_t)params & 0xFF;
 
 	LL_ASSERT((status == TICKER_STATUS_SUCCESS) ||
-		  (_radio.ticker_id_stop == ticker_id));
+		  (_radio.ticker_id_stop == ticker_id) ||
+		  (_radio.ticker_id_upd == ticker_id));
+}
+
+static void ticker_stop_slave_assert(u32_t status, void *params)
+{
+	LL_ASSERT(status == TICKER_STATUS_SUCCESS);
+
+	_radio.ticker_id_upd = (u8_t)((u32_t)params & 0xFF);
+}
+
+static void ticker_start_slave_assert(u32_t status, void *params)
+{
+	LL_ASSERT(status == TICKER_STATUS_SUCCESS);
+
+	_radio.ticker_id_upd = 0;
 }
 
 static void mayfly_radio_active(void *params)
@@ -6742,6 +6760,7 @@ static inline u32_t event_conn_upd_prep(struct connection *conn,
 		u32_t conn_interval_us;
 		u32_t ticker_status;
 		u32_t periodic_us;
+		u8_t ticker_id;
 		u16_t latency;
 
 		/* procedure request acked */
@@ -6906,19 +6925,17 @@ static inline u32_t event_conn_upd_prep(struct connection *conn,
 			      RADIO_TICKER_USER_ID_JOB, 0);
 
 		/* start slave/master with new timings */
+		ticker_id = RADIO_TICKER_ID_FIRST_CONNECTION + conn->handle;
 		ticker_status =
 			ticker_stop(RADIO_TICKER_INSTANCE_ID_RADIO,
-				    RADIO_TICKER_USER_ID_WORKER,
-				    RADIO_TICKER_ID_FIRST_CONNECTION +
-				    conn->handle, ticker_success_assert,
-				    (void *)__LINE__);
+				    RADIO_TICKER_USER_ID_WORKER, ticker_id,
+				    ticker_stop_slave_assert,
+				    (void *)(u32_t)ticker_id);
 		LL_ASSERT((ticker_status == TICKER_STATUS_SUCCESS) ||
 			  (ticker_status == TICKER_STATUS_BUSY));
 		ticker_status =
 			ticker_start(RADIO_TICKER_INSTANCE_ID_RADIO,
-				     RADIO_TICKER_USER_ID_WORKER,
-				     RADIO_TICKER_ID_FIRST_CONNECTION +
-				     conn->handle,
+				     RADIO_TICKER_USER_ID_WORKER, ticker_id,
 				     ticks_at_expire, ticks_win_offset,
 				     HAL_TICKER_US_TO_TICKS(periodic_us),
 				     HAL_TICKER_REMAINDER(periodic_us),
@@ -6926,8 +6943,8 @@ static inline u32_t event_conn_upd_prep(struct connection *conn,
 				     (ticks_slot_offset + conn->hdr.ticks_slot),
 				     conn->role ?
 				     event_slave_prepare : event_master_prepare,
-				     conn, ticker_success_assert,
-				     (void *)__LINE__);
+				     conn, ticker_start_slave_assert,
+				     (void *)(u32_t)ticker_id);
 		LL_ASSERT((ticker_status == TICKER_STATUS_SUCCESS) ||
 			  (ticker_status == TICKER_STATUS_BUSY));
 
@@ -7166,6 +7183,42 @@ static inline void event_enc_prep(struct connection *conn)
 static inline void event_fex_prep(struct connection *conn)
 {
 	struct radio_pdu_node_tx *node_tx;
+
+	if (conn->common.fex_valid) {
+		struct radio_pdu_node_rx *node_rx;
+		struct pdu_data *pdu_ctrl_rx;
+
+		/* procedure request acked */
+		conn->llcp_ack = conn->llcp_req;
+
+		/* Prepare the rx packet structure */
+		node_rx = packet_rx_reserve_get(2);
+		LL_ASSERT(node_rx);
+
+		node_rx->hdr.handle = conn->handle;
+		node_rx->hdr.type = NODE_RX_TYPE_DC_PDU;
+
+		/* prepare feature rsp structure */
+		pdu_ctrl_rx = (void *)node_rx->pdu_data;
+		pdu_ctrl_rx->ll_id = PDU_DATA_LLID_CTRL;
+		pdu_ctrl_rx->len = offsetof(struct pdu_data_llctrl,
+					    feature_rsp) +
+				   sizeof(struct pdu_data_llctrl_feature_rsp);
+		pdu_ctrl_rx->llctrl.opcode = PDU_DATA_LLCTRL_TYPE_FEATURE_RSP;
+		(void)memset(&pdu_ctrl_rx->llctrl.feature_rsp.features[0], 0x00,
+			     sizeof(pdu_ctrl_rx->llctrl.feature_rsp.features));
+		pdu_ctrl_rx->llctrl.feature_req.features[0] =
+			conn->llcp_features & 0xFF;
+		pdu_ctrl_rx->llctrl.feature_req.features[1] =
+			(conn->llcp_features >> 8) & 0xFF;
+		pdu_ctrl_rx->llctrl.feature_req.features[2] =
+			(conn->llcp_features >> 16) & 0xFF;
+
+		/* enqueue feature rsp structure into rx queue */
+		packet_rx_enqueue();
+
+		return;
+	}
 
 	node_tx = mem_acquire(&_radio.pkt_tx_ctrl_free);
 	if (node_tx) {
@@ -10504,9 +10557,13 @@ u32_t radio_scan_enable(u8_t type, u8_t init_addr_type, u8_t *init_addr,
 	return 0;
 }
 
-u32_t radio_scan_disable(void)
+u32_t radio_scan_disable(bool scanner)
 {
 	u32_t status;
+
+	if (scanner && _radio.scanner.conn) {
+		return BT_HCI_ERR_CMD_DISALLOWED;
+	}
 
 	status = role_disable(RADIO_TICKER_ID_SCAN,
 			      RADIO_TICKER_ID_SCAN_STOP);
@@ -10518,7 +10575,7 @@ u32_t radio_scan_disable(void)
 		}
 	}
 
-	return status ? BT_HCI_ERR_CMD_DISALLOWED : 0;
+	return _radio.scanner.is_enabled ? BT_HCI_ERR_CMD_DISALLOWED : 0;
 }
 
 u32_t ll_scan_is_enabled(void)
@@ -10709,7 +10766,7 @@ u32_t ll_connect_disable(void **node_rx)
 		return BT_HCI_ERR_CMD_DISALLOWED;
 	}
 
-	status = radio_scan_disable();
+	status = radio_scan_disable(false);
 	if (!status) {
 		struct connection *conn = _radio.scanner.conn;
 		struct radio_pdu_node_rx *rx;

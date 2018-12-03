@@ -13,6 +13,7 @@
 #include <toolchain.h>
 #include <linker/sections.h>
 
+#include <net/dummy.h>
 #include <net/net_mgmt.h>
 #include <net/net_pkt.h>
 #include <ztest.h>
@@ -73,15 +74,13 @@ static void fake_iface_init(struct net_if *iface)
 	net_if_set_link_addr(iface, mac, 8, NET_LINK_DUMMY);
 }
 
-static int fake_iface_send(struct net_if *iface, struct net_pkt *pkt)
+static int fake_iface_send(struct device *dev, struct net_pkt *pkt)
 {
-	net_pkt_unref(pkt);
-
-	return NET_OK;
+	return 0;
 }
 
-static struct net_if_api fake_iface_api = {
-	.init = fake_iface_init,
+static struct dummy_api fake_iface_api = {
+	.iface_api.init = fake_iface_init,
 	.send = fake_iface_send,
 };
 
@@ -143,8 +142,6 @@ static void receiver_cb(struct net_mgmt_event_callback *cb,
 
 static int sending_event(u32_t times, bool receiver, bool info)
 {
-	int ret = TC_PASS;
-
 	TC_PRINT("- Sending event %u times, %s a receiver, %s info\n",
 		 times, receiver ? "with" : "without",
 		 info ? "with" : "without");
@@ -172,7 +169,7 @@ static int sending_event(u32_t times, bool receiver, bool info)
 		rx_event = rx_calls = 0;
 	}
 
-	return ret;
+	return TC_PASS;
 }
 
 static int test_sending_event(u32_t times, bool receiver)
@@ -243,8 +240,6 @@ static void initialize_event_tests(void)
 
 static int test_core_event(u32_t event, bool (*func)(void))
 {
-	int ret = TC_PASS;
-
 	TC_PRINT("- Triggering core event: 0x%08X\n", event);
 
 	net_mgmt_init_event_callback(&rx_cb, receiver_cb, event);
@@ -261,7 +256,7 @@ static int test_core_event(u32_t event, bool (*func)(void))
 	net_mgmt_del_event_callback(&rx_cb);
 	rx_event = rx_calls = 0;
 
-	return ret;
+	return TC_PASS;
 }
 
 static bool _iface_ip6_add(void)

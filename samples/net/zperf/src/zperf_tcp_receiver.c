@@ -32,12 +32,8 @@
 static K_THREAD_STACK_DEFINE(zperf_tcp_rx_stack, TCP_RX_FIBER_STACK_SIZE);
 static struct k_thread zperf_tcp_rx_thread_data;
 
-#if defined(CONFIG_NET_IPV6)
 static struct sockaddr_in6 *in6_addr_my;
-#endif
-#if defined(CONFIG_NET_IPV4)
 static struct sockaddr_in *in4_addr_my;
-#endif
 
 static void tcp_received(struct net_context *context,
 			 struct net_pkt *pkt,
@@ -240,8 +236,6 @@ static void zperf_tcp_rx_thread(const struct shell *shell, int port)
 	if (fail > 1) {
 		return;
 	}
-
-	k_sleep(K_FOREVER);
 }
 
 void zperf_tcp_receiver_init(const struct shell *shell, int port)

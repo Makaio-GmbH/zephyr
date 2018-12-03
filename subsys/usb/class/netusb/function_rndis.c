@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_LEVEL CONFIG_USB_DEVICE_NETWORK_DEBUG_LEVEL
+#define LOG_LEVEL CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL
 #include <logging/log.h>
 LOG_MODULE_REGISTER(usb_rndis);
 
@@ -1308,6 +1308,9 @@ static void rndis_status_cb(enum usb_dc_status_code status, const u8_t *param)
 	case USB_DC_RESUME:
 	case USB_DC_INTERFACE:
 		LOG_DBG("USB unhandlded state: %d", status);
+		break;
+
+	case USB_DC_SOF:
 		break;
 
 	case USB_DC_UNKNOWN:

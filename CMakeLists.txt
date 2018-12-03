@@ -53,7 +53,6 @@ zephyr_include_directories(
   ${SOC_DIR}/${ARCH}/${SOC_PATH}
   ${SOC_DIR}/${ARCH}/${SOC_PATH}/include
   ${SOC_DIR}/${ARCH}/${SOC_FAMILY}/include
-  ${BOARD_DIR}
   include
   include/drivers
   ${PROJECT_BINARY_DIR}/include/generated
@@ -703,14 +702,14 @@ endif() # CONFIG_APPLICATION_MEMORY
 # Declare MPU userspace dependencies before the linker scripts to make
 # sure the order of dependencies are met
 if(CONFIG_CPU_HAS_MPU AND CONFIG_USERSPACE)
-	if(CONFIG_MPU_REQUIRES_POWER_OF_TWO_ALIGNMENT AND CONFIG_APP_SHARED_MEM )
+  if(CONFIG_MPU_REQUIRES_POWER_OF_TWO_ALIGNMENT AND CONFIG_APP_SHARED_MEM )
     set(APP_SMEM_DEP app_smem_linker)
   endif()
-  if(CONFIG_MPU_REQUIRES_POWER_OF_TWO_ALIGNMENT AND CONFIG_APPLICATION_MEMORY)
+  if(CONFIG_MPU_REQUIRES_POWER_OF_TWO_ALIGNMENT AND CONFIG_ARC AND CONFIG_APPLICATION_MEMORY)
     set(ALIGN_SIZING_DEP app_sizing_prebuilt linker_app_sizing_script)
   endif()
   if(CONFIG_ARM)
-  set(PRIV_STACK_DEP priv_stacks_prebuilt)
+    set(PRIV_STACK_DEP priv_stacks_prebuilt)
   endif()
 endif()
 
@@ -1079,7 +1078,7 @@ zephyr_compile_options(
 )
 
 configure_file(
-     $ENV{ZEPHYR_BASE}/include/arch/arm/cortex_m/scripts/app_data_alignment.ld
+     $ENV{ZEPHYR_BASE}/include/arch/arc/v2/app_data_alignment.ld
      ${PROJECT_BINARY_DIR}/include/generated/app_data_alignment.ld)
 
 configure_file(
@@ -1111,7 +1110,7 @@ if(CONFIG_CPU_HAS_MPU AND CONFIG_USERSPACE)
   endif()
 
 
-  if(CONFIG_MPU_REQUIRES_POWER_OF_TWO_ALIGNMENT AND CONFIG_APPLICATION_MEMORY)
+  if(CONFIG_MPU_REQUIRES_POWER_OF_TWO_ALIGNMENT AND CONFIG_ARC AND CONFIG_APPLICATION_MEMORY)
 
     construct_add_custom_command_for_linker_pass(linker_app_sizing custom_command)
     add_custom_command(
@@ -1243,22 +1242,27 @@ list_append_ifdef(CONFIG_CHECK_LINK_MAP
   COMMAND ${PYTHON_EXECUTABLE} ${ZEPHYR_BASE}/scripts/check_link_map.py ${KERNEL_MAP_NAME}
   )
 
+if(NOT CONFIG_BUILD_NO_GAP_FILL)
+  # Use ';' as separator to get proper space in resulting command.
+  set(GAP_FILL "--gap-fill;0xff")
+endif()
+
 list_append_ifdef(
   CONFIG_BUILD_OUTPUT_HEX
   post_build_commands
-  COMMAND ${CMAKE_OBJCOPY} -S -Oihex --gap-fill 0xFF  -R .comment -R COMMON -R .eh_frame  ${KERNEL_ELF_NAME}    ${KERNEL_HEX_NAME}
+  COMMAND ${CMAKE_OBJCOPY} -S -Oihex ${GAP_FILL}  -R .comment -R COMMON -R .eh_frame  ${KERNEL_ELF_NAME}    ${KERNEL_HEX_NAME}
   )
 
 list_append_ifdef(
   CONFIG_BUILD_OUTPUT_BIN
   post_build_commands
-  COMMAND ${CMAKE_OBJCOPY} -S -Obinary --gap-fill 0xFF -R .comment -R COMMON -R .eh_frame  ${KERNEL_ELF_NAME}    ${KERNEL_BIN_NAME}
+  COMMAND ${CMAKE_OBJCOPY} -S -Obinary ${GAP_FILL} -R .comment -R COMMON -R .eh_frame  ${KERNEL_ELF_NAME}    ${KERNEL_BIN_NAME}
   )
 
 list_append_ifdef(
   CONFIG_BUILD_OUTPUT_S19
   post_build_commands
-  COMMAND ${CMAKE_OBJCOPY} --gap-fill 0xFF --srec-len 1 --output-target=srec ${KERNEL_ELF_NAME} ${KERNEL_S19_NAME}
+  COMMAND ${CMAKE_OBJCOPY} ${GAP_FILL} --srec-len 1 --output-target=srec ${KERNEL_ELF_NAME} ${KERNEL_S19_NAME}
   )
 
 list_append_ifdef(

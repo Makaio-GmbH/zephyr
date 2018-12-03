@@ -7,7 +7,7 @@
  */
 
 #define LOG_MODULE_NAME ieee802154_cc1200
-#define LOG_LEVEL CONFIG_IEEE802154_LOG_LEVEL
+#define LOG_LEVEL CONFIG_IEEE802154_DRIVER_LOG_LEVEL
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
@@ -833,7 +833,6 @@ static struct cc1200_context cc1200_context_data;
 
 static struct ieee802154_radio_api cc1200_radio_api = {
 	.iface_api.init	= cc1200_iface_init,
-	.iface_api.send	= ieee802154_radio_send,
 
 	.get_capabilities	= cc1200_get_capabilities,
 	.cca			= cc1200_cca,
