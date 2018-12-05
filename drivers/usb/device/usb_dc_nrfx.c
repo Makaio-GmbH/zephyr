@@ -29,11 +29,16 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(usb_nrfx);
 
-#define USB_BMREQUEST_SETADDRESS 0x05
-#define USB_BMREQUESTTYPE_POS    7uL
-#define USB_BMREQUESTTYPE_MASK   (1uL << USB_BMREQUESTTYPE_POS)
-#define USB_BMREQUESTTYPE_HOSTTODEVICE_MASK  0uL
-#define USB_BMREQUESTTYPE_DEVICETOHOST_MASK  (1uL << USB_BMREQUESTTYPE_POS)
+#define USB_BREQUEST_SETADDRESS 		0x05
+#define USB_BMREQUESTTYPE_DIR_POS		7uL
+#define USB_BMREQUESTTYPE_DIR_MASK		(1uL << USB_BMREQUESTTYPE_DIR_POS)
+#define USB_BMREQUESTTYPE_DIR_HOSTTODEVICE_MASK	0uL
+#define USB_BMREQUESTTYPE_DIR_DEVICETOHOST_MASK	(1uL << USB_BMREQUESTTYPE_DIR_POS)
+#define USB_BMREQUESTTYPE_TYPE_POS		5uL
+#define USB_BMREQUESTTYPE_TYPE_MASK		(3uL << USB_BMREQUESTTYPE_TYPE_POS)
+#define USB_BMREQUESTTYPE_TYPE_STANDARD_MASK	0uL
+#define USB_BMREQUESTTYPE_TYPE_CLASS_MASK	(1uL << USB_BMREQUESTTYPE_TYPE_POS)
+#define USB_BMREQUESTTYPE_TYPE_CLASS_VENDOR	(2uL << USB_BMREQUESTTYPE_TYPE_POS)
 
 #define MAX_EP_BUF_SZ           64UL
 #define MAX_ISO_EP_BUF_SZ       1024UL
@@ -383,7 +388,7 @@ static inline struct usbd_ep_event *usbd_evt_alloc(void)
 
 	ev = (struct usbd_ep_event *)block.data;
 	ev->block = block;
-	ev->misc_u.flags = 0;
+	ev->misc_u.flags = 0U;
 
 	return ev;
 }
@@ -530,7 +535,7 @@ static void ep_ctx_reset(struct nrf_usbd_ep_ctx *ep_ctx)
 {
 	ep_ctx->buf.data = ep_ctx->buf.block.data;
 	ep_ctx->buf.curr = ep_ctx->buf.data;
-	ep_ctx->buf.len  = 0;
+	ep_ctx->buf.len  = 0U;
 
 	ep_ctx->read_complete = true;
 	ep_ctx->read_pending = false;
@@ -550,7 +555,7 @@ static int eps_ctx_init(void)
 	int err;
 	u32_t i;
 
-	for (i = 0; i < CFG_EPIN_CNT; i++) {
+	for (i = 0U; i < CFG_EPIN_CNT; i++) {
 		ep_ctx = in_endpoint_ctx(i);
 		__ASSERT_NO_MSG(ep_ctx);
 
@@ -566,7 +571,7 @@ static int eps_ctx_init(void)
 		ep_ctx_reset(ep_ctx);
 	}
 
-	for (i = 0; i < CFG_EPOUT_CNT; i++) {
+	for (i = 0U; i < CFG_EPOUT_CNT; i++) {
 		ep_ctx = out_endpoint_ctx(i);
 		__ASSERT_NO_MSG(ep_ctx);
 
@@ -622,14 +627,14 @@ static void eps_ctx_uninit(void)
 	struct nrf_usbd_ep_ctx *ep_ctx;
 	u32_t i;
 
-	for (i = 0; i < CFG_EPIN_CNT; i++) {
+	for (i = 0U; i < CFG_EPIN_CNT; i++) {
 		ep_ctx = in_endpoint_ctx(i);
 		__ASSERT_NO_MSG(ep_ctx);
 		k_mem_pool_free(&ep_ctx->buf.block);
 		memset(ep_ctx, 0, sizeof(*ep_ctx));
 	}
 
-	for (i = 0; i < CFG_EPOUT_CNT; i++) {
+	for (i = 0U; i < CFG_EPOUT_CNT; i++) {
 		ep_ctx = out_endpoint_ctx(i);
 		__ASSERT_NO_MSG(ep_ctx);
 		k_mem_pool_free(&ep_ctx->buf.block);
@@ -732,8 +737,8 @@ static inline void usbd_work_process_setup(struct nrf_usbd_ep_ctx *ep_ctx)
 
 	struct nrf_usbd_ctx *ctx = get_usbd_ctx();
 
-	if (((usbd_setup->bmRequestType & USB_BMREQUESTTYPE_MASK)
-	     == USB_BMREQUESTTYPE_HOSTTODEVICE_MASK)
+	if (((usbd_setup->bmRequestType & USB_BMREQUESTTYPE_DIR_MASK)
+	     == USB_BMREQUESTTYPE_DIR_HOSTTODEVICE_MASK)
 	    && (usbd_setup->wLength)) {
 		struct nrf_usbd_ctx *ctx = get_usbd_ctx();
 
@@ -1043,7 +1048,9 @@ static void usbd_event_handler(nrfx_usbd_evt_t const *const p_event)
 		nrfx_usbd_setup_t drv_setup;
 
 		nrfx_usbd_setup_get(&drv_setup);
-		if (drv_setup.bmRequest != USB_BMREQUEST_SETADDRESS) {
+		if ((drv_setup.bRequest != USB_BREQUEST_SETADDRESS)
+		    || ((drv_setup.bmRequestType & USB_BMREQUESTTYPE_TYPE_MASK)
+			!= USB_BMREQUESTTYPE_TYPE_STANDARD_MASK)) {
 			/* SetAddress is habdled by USBD hardware.
 			 * No software action required.
 			 */
@@ -1114,7 +1121,7 @@ int usb_dc_detach(void)
 
 	k_mutex_lock(&ctx->drv_lock, K_FOREVER);
 
-	ctx->flags = 0;
+	ctx->flags = 0U;
 	ctx->state = USBD_DETACHED;
 	ctx->status_code = USB_DC_UNKNOWN;
 
@@ -1272,7 +1279,7 @@ int usb_dc_ep_set_stall(const u8_t ep)
 		return -EINVAL;
 	}
 
-	ep_ctx->buf.len = 0;
+	ep_ctx->buf.len = 0U;
 	ep_ctx->buf.curr = ep_ctx->buf.data;
 
 	LOG_DBG("STALL on EP %d.", ep);
@@ -1390,7 +1397,7 @@ int usb_dc_ep_flush(const u8_t ep)
 		return -EINVAL;
 	}
 
-	ep_ctx->buf.len = 0;
+	ep_ctx->buf.len = 0U;
 	ep_ctx->buf.curr = ep_ctx->buf.data;
 
 	nrfx_usbd_transfer_out_drop(ep_addr_to_nrfx(ep));

@@ -107,7 +107,7 @@ static int uart_imx_poll_in(struct device *dev, unsigned char *c)
 {
 	UART_Type *uart = UART_STRUCT(dev);
 
-	while (!UART_GetStatusFlag(uart, uartStatusRxReady))
+	while (!UART_GetStatusFlag(uart, uartStatusRxDataReady))
 		;
 	*c = UART_Getchar(uart);
 
@@ -124,7 +124,7 @@ static int uart_imx_fifo_fill(struct device *dev, const u8_t *tx_data,
 				  int size)
 {
 	UART_Type *uart = UART_STRUCT(dev);
-	unsigned int num_tx = 0;
+	unsigned int num_tx = 0U;
 
 	while (((size - num_tx) > 0) &&
 		   UART_GetStatusFlag(uart, uartStatusTxReady)) {
@@ -140,7 +140,7 @@ static int uart_imx_fifo_read(struct device *dev, u8_t *rx_data,
 				  const int size)
 {
 	UART_Type *uart = UART_STRUCT(dev);
-	unsigned int num_rx = 0;
+	unsigned int num_rx = 0U;
 
 	while (((size - num_rx) > 0) &&
 		   UART_GetStatusFlag(uart, uartStatusRxReady)) {
@@ -254,7 +254,7 @@ void uart_imx_isr(void *arg)
 	struct imx_uart_data *data = dev->driver_data;
 
 	if (data->callback) {
-		data->callback(dev);
+		data->callback(data->cb_data);
 	}
 }
 #endif /* CONFIG_UART_INTERRUPT_DRIVEN */
