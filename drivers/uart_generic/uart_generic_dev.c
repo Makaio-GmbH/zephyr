@@ -102,7 +102,7 @@ int uart_dev_send_cmd(/*struct uart_dev_socket *sock,*/
     memcpy(&data[buff_len], dev_ctx->linebreak_constant,  dev_ctx->linebreak_len);
 
 
-    LOG_DBG("OUT: [%s]", cmd);
+    LOG_INF("OUT: [%s]", cmd);
 
 
     LOG_DBG("Reset sem");
@@ -404,7 +404,7 @@ static int uart_dev_process_line(struct uart_dev_ctx *ictx, char line[], u16_t l
 	if(strlen(line) == 0)
 		return 1;
 
-    LOG_DBG("[%s] IN (%u b): [%s]", ictx->drv_ctx.uart_dev->config->name, strlen(line), log_strdup(line));
+    LOG_INF("[%s] IN (%u b): [%s]", ictx->drv_ctx.uart_dev->config->name, strlen(line), log_strdup(line));
 
 
     int ret_handled = 1;

@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <logging/log.h>
+LOG_MODULE_REGISTER(pwr, 4);
 #include "test.h"
 
 /* In Tickless Kernel mode, time is passed in milliseconds instead of ticks */
@@ -59,15 +61,15 @@ static void low_power_state_exit(void)
 	/* Perform some Application specific task on Low Power Mode Exit */
 
 	/* Turn on suspended peripherals/clocks as necessary */
-	printk("-- Low Power State exit !\n");
+	LOG_DBG("-- Low Power State exit !\n");
 }
 
 static int low_power_state_entry(void)
 {
 	if (pm_state == SYS_POWER_STATE_CPU_LPS) {
-		printk("--> Entering into Constant Latency State -");
+		LOG_DBG("--> Entering into Constant Latency State -");
 	} else {
-		printk("--> Entering into Low Power State -");
+		LOG_DBG("--> Entering into Low Power State -");
 	}
 	_sys_soc_set_power_state(pm_state);
 	return SYS_PM_LOW_POWER_STATE;
@@ -77,12 +79,12 @@ static void low_power_suspend_exit(void)
 {
 	/* Turn on peripherals and restore device states as necessary */
 	resume_devices();
-	printk("-- Low Power Suspend State exit!\n");
+	LOG_DBG("-- Low Power Suspend State exit!\n");
 }
 
 static int low_power_suspend_entry(void)
 {
-	printk("--> Entering into Deep Sleep State -");
+	LOG_DBG("--> Entering into Deep Sleep State -");
 	/* Don't need pm idle exit event notification */
 	_sys_soc_pm_idle_exit_notification_disable();
 	/* Save device states and turn off peripherals as necessary */
@@ -108,7 +110,7 @@ int _sys_soc_suspend(s32_t ticks)
 	post_ops_done = 0;
 
 	if ((ticks != K_FOREVER) && (ticks < MIN_TIME_TO_SUSPEND)) {
-		printk("Not enough time for PM operations " TIME_UNIT_STRING
+		LOG_DBG("Not enough time for PM operations " TIME_UNIT_STRING
 			   " : %d / %d).\n", ticks, MIN_TIME_TO_SUSPEND);
 		return SYS_PM_NOT_HANDLED;
 	}
@@ -127,7 +129,7 @@ int _sys_soc_suspend(s32_t ticks)
 			break;
 		default:
 			/* No PM operations */
-			printk("\nNo PM operations done\n");
+			LOG_DBG("\nNo PM operations done\n");
 			ret = SYS_PM_NOT_HANDLED;
 			break;
 	}

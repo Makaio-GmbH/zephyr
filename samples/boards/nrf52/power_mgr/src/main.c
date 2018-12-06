@@ -4,6 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <logging/log.h>
+LOG_MODULE_REGISTER(app, 4);
 #include "test.h"
 
 #define BUSY_WAIT_DELAY_US		(10 * 1000000)
@@ -22,12 +24,12 @@ void create_device_list(void);
 
 void sys_pm_notify_lps_entry(enum power_states state)
 {
-
+	LOG_DBG("Entering Low Power state (%d)\n", state);
 }
 
 void sys_pm_notify_lps_exit(enum power_states state)
 {
-
+	LOG_DBG("Exiting Low Power state (%d)\n", state);
 }
 
 /* Application main Thread */
@@ -36,8 +38,8 @@ void main(void)
 	struct device *gpio_in;
 	u32_t level = 0U;
 
-	printk("\n\n***Power Management Demo on %s****\n", CONFIG_ARCH);
-	printk(DEMO_DESCRIPTION);
+	LOG_DBG("\n\n***Power Management Demo on %s****\n", CONFIG_ARCH);
+	LOG_DBG(DEMO_DESCRIPTION);
 
 	//gpio_setup();
 #ifdef CONFIG_PM_CONTROL_APP
@@ -70,21 +72,21 @@ create_device_list();
 
 
 	for (int i = 1; i <= 4; i++) {
-		printk("\n<-- App doing busy wait for 10 Sec -->\n");
+		LOG_DBG("\n<-- App doing busy wait for 10 Sec -->\n");
 		k_busy_wait(BUSY_WAIT_DELAY_US);
 
 		/* Create Idleness to make Idle thread run */
 		if ((i % 2) == 0) {
-			printk("\n<-- App going to sleep for 90 Sec -->\n");
+			LOG_DBG("\n<-- App going to sleep for 90 Sec -->\n");
 			k_sleep(LPS1_STATE_ENTER_TO);
 		} else {
-			printk("\n<-- App going to sleep for 30 Sec -->\n");
+			LOG_DBG("\n<-- App going to sleep for 30 Sec -->\n");
 			k_sleep(LPS_STATE_ENTER_TO);
 		}
 
 	}
 
-	printk("\nPress BUTTON1 to enter into Deep Dleep state..."
+	LOG_DBG("\nPress BUTTON1 to enter into Deep Dleep state..."
 		   "Press BUTTON2 to exit Deep Sleep state\n");
 	while (1) {
 		gpio_pin_read(gpio_in, BUTTON_1, &level);
