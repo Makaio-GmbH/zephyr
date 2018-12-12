@@ -495,7 +495,7 @@ static void find_completion_candidates(const struct shell_static_entry *cmd,
 	bool found = false;
 	size_t idx = 0;
 
-	*longest = 0;
+	*longest = 0U;
 	*cnt = 0;
 
 	while (true) {
@@ -619,29 +619,36 @@ static void tab_options_print(const struct shell *shell,
 
 static u16_t common_beginning_find(const struct shell_static_entry *cmd,
 				   const char **str,
-				   size_t first, size_t cnt)
+				   size_t first, size_t cnt, size_t arg_len)
 {
 	struct shell_static_entry dynamic_entry;
 	const struct shell_static_entry *match;
 	u16_t common = UINT16_MAX;
-
+	size_t idx = first + 1;
 
 	cmd_get(cmd ? cmd->subcmd : NULL, cmd ? 1 : 0,
 		first, &match, &dynamic_entry);
 
 	*str = match->syntax;
 
-	for (size_t idx = first + 1; idx < first + cnt; idx++) {
+	while (cnt > 1) {
 		struct shell_static_entry dynamic_entry2;
 		const struct shell_static_entry *match2;
 		int curr_common;
 
 		cmd_get(cmd ? cmd->subcmd : NULL, cmd ? 1 : 0,
-			idx, &match2, &dynamic_entry2);
+			idx++, &match2, &dynamic_entry2);
+
+		if (match2 == NULL) {
+			break;
+		}
 
 		curr_common = shell_str_common(match->syntax, match2->syntax,
 					       UINT16_MAX);
-		common = (curr_common < common) ? curr_common : common;
+		if ((arg_len == 0U) || (curr_common >= arg_len)) {
+			--cnt;
+			common = (curr_common < common) ? curr_common : common;
+		}
 	}
 
 	return common;
@@ -652,9 +659,11 @@ static void partial_autocomplete(const struct shell *shell,
 				 const char *arg,
 				 size_t first, size_t cnt)
 {
+	size_t arg_len = shell_strlen(arg);
 	const char *completion;
-	u16_t common = common_beginning_find(cmd, &completion, first, cnt);
-	int arg_len = shell_strlen(arg);
+	u16_t common;
+
+	common = common_beginning_find(cmd, &completion, first, cnt, arg_len);
 
 	if (common) {
 		shell_op_completion_insert(shell, &completion[arg_len],
@@ -674,7 +683,6 @@ static void shell_tab_handle(const struct shell *shell)
 	size_t first;
 	size_t argc;
 	size_t cnt;
-
 
 	bool tab_possible = shell_tab_prepare(shell, &cmd, argv, &argc,
 					      &arg_idx, &d_entry);
@@ -696,12 +704,6 @@ static void shell_tab_handle(const struct shell *shell)
 				  longest);
 		partial_autocomplete(shell, cmd, argv[arg_idx], first, cnt);
 	}
-}
-
-#define SHELL_ASCII_MAX_CHAR (127u)
-static inline int ascii_filter(const char data)
-{
-	return (u8_t) data > SHELL_ASCII_MAX_CHAR ? -EINVAL : 0;
 }
 
 static void metakeys_handle(const struct shell *shell, char data)
@@ -757,6 +759,29 @@ static void metakeys_handle(const struct shell *shell, char data)
 	}
 }
 
+/* Functions returns true if new line character shall be processed */
+static bool process_nl(const struct shell *shell, u8_t data)
+{
+	if ((data != '\r') && (data != '\n')) {
+		shell->ctx->internal.flags.last_nl = 0;
+		return false;
+	}
+
+	if ((shell->ctx->internal.flags.last_nl == 0) ||
+	    (data == shell->ctx->internal.flags.last_nl)) {
+		shell->ctx->internal.flags.last_nl = data;
+		return true;
+	}
+
+	return false;
+}
+
+#define SHELL_ASCII_MAX_CHAR (127u)
+static inline int ascii_filter(const char data)
+{
+	return (u8_t) data > SHELL_ASCII_MAX_CHAR ? -EINVAL : 0;
+}
+
 static void shell_state_collect(const struct shell *shell)
 {
 	size_t count = 0;
@@ -777,7 +802,7 @@ static void shell_state_collect(const struct shell *shell)
 
 		switch (shell->ctx->receive_state) {
 		case SHELL_RECEIVE_DEFAULT:
-			if ((data == '\r') || (data == '\n')) {
+			if (process_nl(shell, data)) {
 				if (!shell->ctx->cmd_buff_len) {
 					history_mode_exit(shell);
 					cursor_next_line_move(shell);
@@ -785,10 +810,13 @@ static void shell_state_collect(const struct shell *shell)
 					/* Command execution */
 					(void)shell_execute(shell);
 				}
-
+				/* Function responsible for printing prompt
+				 * on received NL.
+				 */
 				shell_state_set(shell, SHELL_STATE_ACTIVE);
 				return;
 			}
+
 			switch (data) {
 			case SHELL_VT100_ASCII_ESC: /* ESCAPE */
 				receive_state_change(shell, SHELL_RECEIVE_ESC);
@@ -1332,9 +1360,9 @@ int shell_init(const struct shell *shell, const void *transport_config,
 			      shell->stack, CONFIG_SHELL_STACK_SIZE,
 			      shell_thread, (void *)shell, (void *)log_backend,
 			      (void *)init_log_level,
-			      CONFIG_SHELL_THREAD_PRIO, 0, K_NO_WAIT);
+			      K_LOWEST_APPLICATION_THREAD_PRIO, 0, K_NO_WAIT);
 
-	k_thread_name_set(tid, "shell");
+	k_thread_name_set(tid, shell->thread_name);
 
 	return 0;
 }
@@ -1691,7 +1719,7 @@ static void help_subcmd_print(const struct shell *shell)
 {
 	const struct shell_static_entry *entry = NULL;
 	struct shell_static_entry static_entry;
-	u16_t longest_syntax = 0;
+	u16_t longest_syntax = 0U;
 	size_t cmd_idx = 0;
 
 	/* Checking if there are any subcommands available. */

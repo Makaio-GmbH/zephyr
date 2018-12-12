@@ -396,7 +396,7 @@ static int cmd_write(const struct shell *shell, size_t argc, char **argv)
 		return -ENOEXEC;
 	}
 
-	buf_len = 0;
+	buf_len = 0U;
 	while (arg_offset < argc) {
 		buf[buf_len++] = strtol(argv[arg_offset++], NULL, 16);
 
@@ -410,7 +410,7 @@ static int cmd_write(const struct shell *shell, size_t argc, char **argv)
 				return -ENOEXEC;
 			}
 
-			buf_len = 0;
+			buf_len = 0U;
 		}
 	}
 
@@ -486,7 +486,7 @@ static int cmd_mount_nffs(const struct shell *shell, size_t argc, char **argv)
 	}
 
 	nffs_mnt.mnt_point = (const char *)mntpt;
-	flash_dev = device_get_binding(FLASH_DEV_NAME);
+	flash_dev = device_get_binding(DT_FLASH_DEV_NAME);
 	if (!flash_dev) {
 		printk("Error in device_get_binding, while mounting nffs fs\n");
 		return -ENOEXEC;

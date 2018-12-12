@@ -314,8 +314,8 @@ static bool dfu_check_app_state(void)
  */
 static void dfu_reset_counters(void)
 {
-	dfu_data.bytes_sent = 0;
-	dfu_data.block_nr = 0;
+	dfu_data.bytes_sent = 0U;
+	dfu_data.block_nr = 0U;
 	flash_img_init(&dfu_data.ctx, dfu_data.flash_dev);
 }
 
@@ -373,11 +373,11 @@ static int dfu_class_handle_req(struct usb_setup_packet *pSetup,
 		}
 
 		(*data)[0] = dfu_data.status;
-		(*data)[1] = 0;
-		(*data)[2] = 1;
-		(*data)[3] = 0;
+		(*data)[1] = 0U;
+		(*data)[2] = 1U;
+		(*data)[3] = 0U;
 		(*data)[4] = dfu_data.state;
-		(*data)[5] = 0;
+		(*data)[5] = 0U;
 		*data_len = 6;
 		break;
 
@@ -583,6 +583,8 @@ static void dfu_status_cb(enum usb_dc_status_code status, const u8_t *param)
 	case USB_DC_RESUME:
 		LOG_DBG("USB device resumed");
 		break;
+	case USB_DC_SOF:
+		break;
 	case USB_DC_UNKNOWN:
 	default:
 		LOG_DBG("USB unknown state");
@@ -683,7 +685,7 @@ static int usb_dfu_init(struct device *dev)
 
 	ARG_UNUSED(dev);
 
-	dfu_data.flash_dev = device_get_binding(FLASH_DEV_NAME);
+	dfu_data.flash_dev = device_get_binding(DT_FLASH_DEV_NAME);
 	if (!dfu_data.flash_dev) {
 		LOG_ERR("Flash device not found\n");
 		return -ENODEV;

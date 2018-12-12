@@ -2,6 +2,7 @@
  * Human Interface Device (HID) USB class core
  *
  * Copyright (c) 2018 Intel Corporation
+ * Copyright (c) 2018 Nordic Semiconductor ASA
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -16,6 +17,8 @@ LOG_MODULE_REGISTER(usb_hid);
 
 #include <usb_descriptor.h>
 #include <class/usb_hid.h>
+
+#include <stdlib.h>
 
 #define HID_INT_IN_EP_ADDR				0x81
 #define HID_INT_OUT_EP_ADDR				0x01
@@ -85,48 +88,214 @@ USBD_CLASS_DESCR_DEFINE(primary) struct usb_hid_config hid_cfg = {
 static struct hid_device_info {
 	const u8_t *report_desc;
 	size_t report_size;
-
 	const struct hid_ops *ops;
+#ifdef CONFIG_USB_DEVICE_SOF
+	u32_t sof_cnt[CONFIG_USB_HID_REPORTS + 1];
+	bool idle_on;
+	bool idle_id_report;
+	u8_t idle_rate[CONFIG_USB_HID_REPORTS + 1];
+#endif
 } hid_device;
 
-static void usb_set_hid_report_size(u16_t report_desc_size)
+static int hid_on_get_idle(struct usb_setup_packet *setup, s32_t *len,
+			   u8_t **data)
 {
-	hid_cfg.if0_hid.subdesc[0].wDescriptorLength =
-		sys_cpu_to_le16(report_desc_size);
+#ifdef CONFIG_USB_DEVICE_SOF
+	u8_t report_id = sys_le16_to_cpu(setup->wValue) & 0xFF;
+
+	if (report_id > CONFIG_USB_HID_REPORTS) {
+		LOG_ERR("Report id out of limit: %d", report_id);
+		return -ENOTSUP;
+	}
+
+	u32_t size = sizeof(hid_device.idle_rate[report_id]);
+
+	LOG_DBG("Get Idle callback, report_id: %d", report_id);
+
+	*data = &hid_device.idle_rate[report_id];
+	len = &size;
+	return 0;
+#else
+	return -ENOTSUP;
+#endif
 }
+
+static int hid_on_get_report(struct usb_setup_packet *setup, s32_t *len,
+			     u8_t **data)
+{
+	LOG_DBG("Get Report callback");
+
+	/* TODO: Do something. */
+
+	return -ENOTSUP;
+}
+
+static int hid_on_get_protocol(struct usb_setup_packet *setup, s32_t *len,
+			       u8_t **data)
+{
+	LOG_DBG("Get Protocol callback");
+
+	/* TODO: Do something. */
+
+	return -ENOTSUP;
+}
+
+static int hid_on_set_idle(struct usb_setup_packet *setup, s32_t *len,
+			   u8_t **data)
+{
+#ifdef CONFIG_USB_DEVICE_SOF
+	u8_t rate = ((sys_le16_to_cpu(setup->wValue) & 0xFF00) >> 8);
+	u8_t report_id = sys_le16_to_cpu(setup->wValue) & 0xFF;
+
+	if (report_id > CONFIG_USB_HID_REPORTS) {
+		LOG_ERR("Report id out of limit: %d", report_id);
+		return -ENOTSUP;
+	}
+
+	LOG_DBG("Set Idle callback, rate: %d, report_id: %d", rate, report_id);
+
+	hid_device.idle_rate[report_id] = rate;
+
+	if (rate == 0) {
+		/* Clear idle */
+		bool clear = true;
+
+		for (u16_t i = 1; i <= CONFIG_USB_HID_REPORTS; i++) {
+			if (hid_device.idle_rate[i] != 0) {
+				/* Report with non-zero id has idle rate. */
+				clear = false;
+				break;
+			}
+		}
+		if (clear) {
+			hid_device.idle_id_report = false;
+			LOG_DBG("Non-zero report idle rate OFF.");
+
+			if (hid_device.idle_rate[0] == 0) {
+				hid_device.idle_on = false;
+				LOG_DBG("Idle rate OFF.");
+			}
+		}
+	} else {
+		/* Set idle */
+		hid_device.idle_on = true;
+		LOG_DBG("Idle rate ON.");
+		if (report_id != 0) {
+			/* Report with non-zero id has idle rate set now. */
+			hid_device.idle_id_report = true;
+			LOG_DBG("Non-zero report idle rate ON.");
+		}
+	}
+	return 0;
+#else
+	return -ENOTSUP;
+#endif
+}
+
+static int hid_on_set_report(struct usb_setup_packet *setup, s32_t *len,
+			     u8_t **data)
+{
+	LOG_DBG("Set Report callback");
+
+	/* TODO: Do something. */
+
+	return -ENOTSUP;
+}
+
+static int hid_on_set_protocol(struct usb_setup_packet *setup, s32_t *len,
+			       u8_t **data)
+{
+	LOG_DBG("Set Protocol callback");
+
+	/* TODO: Do something. */
+
+	return -ENOTSUP;
+}
+
+static void usb_set_hid_report_size(u16_t size)
+{
+	sys_put_le16(size,
+		     (u8_t *)&(hid_cfg.if0_hid.subdesc[0].wDescriptorLength));
+}
+
+#ifdef CONFIG_USB_DEVICE_SOF
+void hid_clear_idle_ctx(void)
+{
+	hid_device.idle_on = false;
+	hid_device.idle_id_report = false;
+	for (u16_t i = 0; i <= CONFIG_USB_HID_REPORTS; i++) {
+		hid_device.sof_cnt[i] = 0;
+		hid_device.idle_rate[i] = 0;
+	}
+}
+
+void hid_sof_handler(void)
+{
+	for (u16_t i = 0; i <= CONFIG_USB_HID_REPORTS; i++) {
+		if (hid_device.idle_rate[i]) {
+			hid_device.sof_cnt[i]++;
+		}
+
+		u32_t diff = abs((hid_device.idle_rate[i] * 4)
+				 - hid_device.sof_cnt[i]);
+
+		if (diff < (2 + (hid_device.idle_rate[i] / 10))) {
+			hid_device.sof_cnt[i] = 0;
+			hid_device.ops->on_idle(i);
+		}
+
+		if (!hid_device.idle_id_report) {
+			/* Only report with 0 id has idle rate.
+			 * No need to check the whole array.
+			 */
+			break;
+		}
+	}
+}
+#endif
 
 static void hid_status_cb(enum usb_dc_status_code status, const u8_t *param)
 {
+	switch (status) {
+	case USB_DC_ERROR:
+		LOG_DBG("USB device error");
+		break;
+	case USB_DC_RESET:
+		LOG_DBG("USB device reset detected");
+#ifdef CONFIG_USB_DEVICE_SOF
+		hid_clear_idle_ctx();
+#endif
+		break;
+	case USB_DC_CONNECTED:
+		LOG_DBG("USB device connected");
+		break;
+	case USB_DC_CONFIGURED:
+		LOG_DBG("USB device configured");
+		break;
+	case USB_DC_DISCONNECTED:
+		LOG_DBG("USB device disconnected");
+		break;
+	case USB_DC_SUSPEND:
+		LOG_DBG("USB device suspended");
+		break;
+	case USB_DC_RESUME:
+		LOG_DBG("USB device resumed");
+		break;
+	case USB_DC_SOF:
+#ifdef CONFIG_USB_DEVICE_SOF
+		if (hid_device.idle_on) {
+			hid_sof_handler();
+		}
+#endif
+		break;
+	case USB_DC_UNKNOWN:
+	default:
+		LOG_DBG("USB unknown state");
+		break;
+	}
+
 	if (hid_device.ops->status_cb) {
 		hid_device.ops->status_cb(status, param);
-	} else {
-		switch (status) {
-		case USB_DC_ERROR:
-			LOG_DBG("USB device error");
-			break;
-		case USB_DC_RESET:
-			LOG_DBG("USB device reset detected");
-			break;
-		case USB_DC_CONNECTED:
-			LOG_DBG("USB device connected");
-			break;
-		case USB_DC_CONFIGURED:
-			LOG_DBG("USB device configured");
-			break;
-		case USB_DC_DISCONNECTED:
-			LOG_DBG("USB device disconnected");
-			break;
-		case USB_DC_SUSPEND:
-			LOG_DBG("USB device suspended");
-			break;
-		case USB_DC_RESUME:
-			LOG_DBG("USB device resumed");
-			break;
-		case USB_DC_UNKNOWN:
-		default:
-			LOG_DBG("USB unknown state");
-			break;
-		}
 	}
 }
 
@@ -138,14 +307,28 @@ static int hid_class_handle_req(struct usb_setup_packet *setup,
 
 	if (REQTYPE_GET_DIR(setup->bmRequestType) == REQTYPE_DIR_TO_HOST) {
 		switch (setup->bRequest) {
+		case HID_GET_IDLE:
+			if (hid_device.ops->get_idle) {
+				return hid_device.ops->get_idle(setup, len,
+								data);
+			} else {
+				return hid_on_get_idle(setup, len, data);
+			}
+			break;
 		case HID_GET_REPORT:
-			LOG_DBG("Get Report");
 			if (hid_device.ops->get_report) {
 				return hid_device.ops->get_report(setup, len,
 								  data);
 			} else {
-				LOG_ERR("Mandatory request not supported");
-				return -EINVAL;
+				return hid_on_get_report(setup, len, data);
+			}
+			break;
+		case HID_GET_PROTOCOL:
+			if (hid_device.ops->get_protocol) {
+				return hid_device.ops->get_protocol(setup, len,
+								    data);
+			} else {
+				return hid_on_get_protocol(setup, len, data);
 			}
 			break;
 		default:
@@ -155,18 +338,29 @@ static int hid_class_handle_req(struct usb_setup_packet *setup,
 	} else {
 		switch (setup->bRequest) {
 		case HID_SET_IDLE:
-			LOG_DBG("Set Idle");
 			if (hid_device.ops->set_idle) {
 				return hid_device.ops->set_idle(setup, len,
 								data);
+			} else {
+				return hid_on_set_idle(setup, len, data);
 			}
 			break;
 		case HID_SET_REPORT:
-			if (hid_device.ops->set_report == NULL) {
-				LOG_ERR("set_report not implemented");
-				return -EINVAL;
+			if (hid_device.ops->set_report) {
+				return hid_device.ops->set_report(setup, len,
+								  data);
+			} else {
+				return hid_on_set_report(setup, len, data);
 			}
-			return hid_device.ops->set_report(setup, len, data);
+			break;
+		case HID_SET_PROTOCOL:
+			if (hid_device.ops->set_protocol) {
+				return hid_device.ops->set_protocol(setup, len,
+								    data);
+			} else {
+				return hid_on_set_protocol(setup, len, data);
+			}
+			break;
 		default:
 			LOG_ERR("Unhandled request 0x%x", setup->bRequest);
 			break;
@@ -186,8 +380,16 @@ static int hid_custom_handle_req(struct usb_setup_packet *setup,
 	    REQTYPE_GET_RECIP(setup->bmRequestType) ==
 					REQTYPE_RECIP_INTERFACE &&
 					setup->bRequest == REQ_GET_DESCRIPTOR) {
-		switch (setup->wValue) {
-		case 0x2200:
+		u8_t value = sys_le16_to_cpu(setup->wValue) >> 8;
+
+		switch (value) {
+		case HID_CLASS_DESCRIPTOR_HID:
+			LOG_DBG("Return HID Descriptor");
+
+			*len = min(*len, hid_cfg.if0_hid.bLength);
+			*data = (u8_t *)&hid_cfg.if0_hid;
+			break;
+		case HID_CLASS_DESCRIPTOR_REPORT:
 			LOG_DBG("Return Report Descriptor");
 
 			/* Some buggy system may be pass a larger wLength when
@@ -272,7 +474,7 @@ static u8_t interface_data[CONFIG_USB_HID_MAX_PAYLOAD_SIZE];
 
 int usb_hid_init(void)
 {
-	LOG_DBG("Iinitializing HID Device");
+	LOG_DBG("Initializing HID Device");
 
 	/*
 	 * Modify Report Descriptor Size

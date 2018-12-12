@@ -12,6 +12,7 @@
 #include <kernel_arch_func.h>
 #include <syscall_handler.h>
 #include <drivers/system_timer.h>
+#include <stdbool.h>
 
 #if defined(CONFIG_SCHED_DUMB)
 #define _priq_run_add		_priq_dumb_add
@@ -74,7 +75,7 @@ static inline int _is_thread_dummy(struct k_thread *thread)
 }
 #endif
 
-static inline int _is_idle(struct k_thread *thread)
+static inline bool _is_idle(struct k_thread *thread)
 {
 #ifdef CONFIG_SMP
 	return thread->base.is_idle;
@@ -110,25 +111,25 @@ bool _is_t1_higher_prio_than_t2(struct k_thread *t1, struct k_thread *t2)
 	return false;
 }
 
-static int should_preempt(struct k_thread *th, int preempt_ok)
+static bool should_preempt(struct k_thread *th, int preempt_ok)
 {
 	/* Preemption is OK if it's being explicitly allowed by
 	 * software state (e.g. the thread called k_yield())
 	 */
-	if (preempt_ok) {
-		return 1;
+	if (preempt_ok != 0) {
+		return true;
 	}
 
 	/* Or if we're pended/suspended/dummy (duh) */
 	if (!_current || !_is_thread_ready(_current)) {
-		return 1;
+		return true;
 	}
 
 	/* Otherwise we have to be running a preemptible thread or
 	 * switching to a metairq
 	 */
 	if (_is_preempt(_current) || is_metairq(th)) {
-		return 1;
+		return true;
 	}
 
 	/* The idle threads can look "cooperative" if there are no
@@ -136,10 +137,10 @@ static int should_preempt(struct k_thread *th, int preempt_ok)
 	 * They must always be preemptible.
 	 */
 	if (_is_idle(_current)) {
-		return 1;
+		return true;
 	}
 
-	return 0;
+	return false;
 }
 
 static struct k_thread *next_up(void)
@@ -206,26 +207,36 @@ static struct k_thread *next_up(void)
 static int slice_time;
 static int slice_max_prio;
 
+/* Subtle note on locking here: in theory we're subject to a race
+ * where _get_next_timeout_expiry() returns a value that changes
+ * between the return and the z_clock_set_timeout() of the adjusted
+ * time: another context can add a new timeout that should expire
+ * sooner, and we'll miss it.  But that's OK, because (1) we're inside
+ * the scheduler lock, so cannot be interrupted on uniprocessor
+ * systems, and (2) it's an interrupt time for our local CPU -- in
+ * SMP, it's safe to miss a timeout as long as another CPU (i.e. the
+ * one we're racing against) is available to wake up at the
+ * appropriate time.
+ */
 static void reset_time_slice(void)
 {
-	int to = _get_next_timeout_expiry();
-
 	/* Add the elapsed time since the last announced tick to the
 	 * slice count, as we'll see those "expired" ticks arrive in a
 	 * FUTURE z_time_slice() call.
 	 */
 	_current_cpu->slice_ticks = slice_time + z_clock_elapsed();
 
-	if (to == K_FOREVER || slice_time < to) {
-		z_clock_set_timeout(slice_time, false);
-	}
+	z_set_timeout_expiry(slice_time, false);
 }
 
 void k_sched_time_slice_set(s32_t duration_in_ms, int prio)
 {
-	slice_time = _ms_to_ticks(duration_in_ms);
-	slice_max_prio = prio;
-	reset_time_slice();
+	LOCKED(&sched_lock) {
+		_current_cpu->slice_ticks = 0;
+		slice_time = _ms_to_ticks(duration_in_ms);
+		slice_max_prio = prio;
+		reset_time_slice();
+	}
 }
 
 static inline int sliceable(struct k_thread *t)

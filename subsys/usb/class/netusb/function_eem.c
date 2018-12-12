@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_LEVEL CONFIG_USB_DEVICE_NETWORK_DEBUG_LEVEL
+#define LOG_LEVEL CONFIG_USB_DEVICE_NETWORK_LOG_LEVEL
 #include <logging/log.h>
 LOG_MODULE_REGISTER(usb_eem);
 
@@ -260,6 +260,9 @@ static void eem_status_cb(enum usb_dc_status_code status, const u8_t *param)
 	case USB_DC_SUSPEND:
 	case USB_DC_RESUME:
 		LOG_DBG("USB unhandlded state: %d", status);
+		break;
+
+	case USB_DC_SOF:
 		break;
 
 	case USB_DC_UNKNOWN:

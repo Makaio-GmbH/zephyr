@@ -22,7 +22,7 @@
 
 #define LOG_LEVEL CONFIG_NEURAL_NET_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_REGISTER(neural_net)
+LOG_MODULE_REGISTER(neural_net);
 
 #define DCACHE_INVALIDATE(addr, size) \
 	xthal_dcache_region_invalidate(addr, size)
@@ -141,8 +141,8 @@ static int intel_gna_setup_page_table(void *physical, size_t size,
 
 	LOG_DBG("physical %p size %u virtual %p", physical, size, virtual);
 
-	if (((phys_addr + size - L2_SRAM_BASE) > L2_SRAM_SIZE) ||
-			(phys_addr < L2_SRAM_BASE)) {
+	if (((phys_addr + size - DT_L2_SRAM_BASE) > DT_L2_SRAM_SIZE) ||
+			(phys_addr < DT_L2_SRAM_BASE)) {
 		LOG_ERR("model at %p of size %u exceeds L2 SRAM space",
 				physical, size);
 		return -EINVAL;
@@ -158,7 +158,7 @@ static int intel_gna_setup_page_table(void *physical, size_t size,
 		return -EINVAL;
 	}
 
-	for (page = 0; page < GNA_NUM_PAGES(size); page++) {
+	for (page = 0U; page < GNA_NUM_PAGES(size); page++) {
 		dir_index = GNA_VA_PG_DIR(virt_addr);
 		table_index = GNA_VA_PG_TABLE(virt_addr);
 		gna_page_table[dir_index].entry[table_index] =

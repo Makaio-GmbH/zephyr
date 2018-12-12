@@ -111,10 +111,10 @@ int hts221_init(struct device *dev)
 	struct hts221_data *drv_data = dev->driver_data;
 	u8_t id, idx;
 
-	drv_data->i2c = device_get_binding(CONFIG_HTS221_I2C_MASTER_DEV_NAME);
+	drv_data->i2c = device_get_binding(DT_HTS221_I2C_MASTER_DEV_NAME);
 	if (drv_data->i2c == NULL) {
 		LOG_ERR("Could not get pointer to %s device.",
-			    CONFIG_HTS221_I2C_MASTER_DEV_NAME);
+			    DT_HTS221_I2C_MASTER_DEV_NAME);
 		return -EINVAL;
 	}
 
@@ -131,7 +131,7 @@ int hts221_init(struct device *dev)
 	}
 
 	/* check if CONFIG_HTS221_ODR is valid */
-	for (idx = 0; idx < ARRAY_SIZE(hts221_odr_strings); idx++) {
+	for (idx = 0U; idx < ARRAY_SIZE(hts221_odr_strings); idx++) {
 		if (!strcmp(hts221_odr_strings[idx], CONFIG_HTS221_ODR)) {
 			break;
 		}
@@ -172,6 +172,6 @@ int hts221_init(struct device *dev)
 
 struct hts221_data hts221_driver;
 
-DEVICE_AND_API_INIT(hts221, CONFIG_HTS221_NAME, hts221_init, &hts221_driver,
+DEVICE_AND_API_INIT(hts221, DT_HTS221_NAME, hts221_init, &hts221_driver,
 		    NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY,
 		    &hts221_driver_api);

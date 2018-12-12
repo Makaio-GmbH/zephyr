@@ -239,8 +239,8 @@ extern "C" {
 		    (_level <= LOG_RUNTIME_FILTER(_filter))) {		    \
 			struct log_msg_ids src_level = {		    \
 				.level = _level,			    \
-				.source_id = _id,			    \
-				.domain_id = CONFIG_LOG_DOMAIN_ID	    \
+				.domain_id = CONFIG_LOG_DOMAIN_ID,	    \
+				.source_id = _id			    \
 			};						    \
 			__LOG_INTERNAL(src_level, _LOG_STR(__VA_ARGS__));   \
 		} else if (0) {						    \
@@ -253,7 +253,7 @@ extern "C" {
 
 #define _LOG(_level, ...)			       \
 	__LOG(_level,				       \
-	      LOG_CURRENT_MODULE_ID(),		       \
+	      (u16_t)LOG_CURRENT_MODULE_ID(),	       \
 	      LOG_CURRENT_DYNAMIC_DATA_ADDR(),	       \
 	      __VA_ARGS__)
 

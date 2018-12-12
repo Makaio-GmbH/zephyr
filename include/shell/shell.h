@@ -349,6 +349,7 @@ struct shell_flags {
 	u32_t tx_rdy      :1;
 	u32_t mode_delete :1; /*!< Operation mode of backspace key */
 	u32_t history_exit:1; /*!< Request to exit history mode */
+	u32_t last_nl     :8; /*!< Last received new line character */
 };
 
 BUILD_ASSERT_MSG((sizeof(struct shell_flags) == sizeof(u32_t)),
@@ -435,6 +436,7 @@ struct shell {
 
 	LOG_INSTANCE_PTR_DECLARE(log);
 
+	const char *thread_name;
 	struct k_thread *thread;
 	k_thread_stack_t *stack;
 };
@@ -474,6 +476,7 @@ struct shell {
 		.stats = SHELL_STATS_PTR(_name),			     \
 		.log_backend = SHELL_LOG_BACKEND_PTR(_name),		     \
 		LOG_INSTANCE_PTR_INIT(log, shell, _name)		     \
+		.thread_name = STRINGIFY(_name),			     \
 		.thread = &_name##_thread,				     \
 		.stack = _name##_stack					     \
 	}
@@ -567,7 +570,7 @@ void shell_fprintf(const struct shell *shell, enum shell_vt100_color color,
  * @param[in] ... List of parameters to print.
  */
 #define shell_info(_sh, _ft, ...) \
-	shell_fprintf(_sh, SHELL_NORMAL, _ft "\n", ##__VA_ARGS__)
+	shell_fprintf(_sh, SHELL_INFO, _ft "\n", ##__VA_ARGS__)
 
 /**
  * @brief Print normal message to the shell.
@@ -591,7 +594,7 @@ void shell_fprintf(const struct shell *shell, enum shell_vt100_color color,
  * @param[in] ... List of parameters to print.
  */
 #define shell_warn(_sh, _ft, ...) \
-	shell_fprintf(_sh, SHELL_ERROR, _ft "\n", ##__VA_ARGS__)
+	shell_fprintf(_sh, SHELL_WARNING, _ft "\n", ##__VA_ARGS__)
 
 /**
  * @brief Print error message to the shell.

@@ -7,7 +7,7 @@
  */
 
 #define LOG_MODULE_NAME ieee802154_cc1200
-#define LOG_LEVEL CONFIG_IEEE802154_LOG_LEVEL
+#define LOG_LEVEL CONFIG_IEEE802154_DRIVER_LOG_LEVEL
 
 #include <logging/log.h>
 LOG_MODULE_REGISTER(LOG_MODULE_NAME);
@@ -99,7 +99,7 @@ bool _cc1200_access_reg(struct cc1200_context *ctx, bool read, u8_t addr,
 		    burst ? "burst" : "single");
 	*/
 
-	cmd_buf[0] = 0;
+	cmd_buf[0] = 0U;
 
 	if (burst) {
 		cmd_buf[0] |= CC1200_ACCESS_BURST;
@@ -276,9 +276,9 @@ static bool write_reg_freq(struct cc1200_context *ctx, u32_t freq)
 static u32_t rf_evaluate_freq_setting(struct cc1200_context *ctx, u32_t chan)
 {
 	u32_t xtal = CONFIG_IEEE802154_CC1200_XOSC;
-	u32_t mult_10 = 100000;
-	u32_t factor = 1;
-	u32_t freq = 0;
+	u32_t mult_10 = 100000U;
+	u32_t factor = 1U;
+	u32_t freq = 0U;
 	u32_t rf, lo_div;
 
 	rf = ctx->rf_settings->chan_center_freq0 +
@@ -833,7 +833,6 @@ static struct cc1200_context cc1200_context_data;
 
 static struct ieee802154_radio_api cc1200_radio_api = {
 	.iface_api.init	= cc1200_iface_init,
-	.iface_api.send	= ieee802154_radio_send,
 
 	.get_capabilities	= cc1200_get_capabilities,
 	.cca			= cc1200_cca,

@@ -109,7 +109,7 @@ static int log_status(const struct shell *shell,
 	shell_fprintf(shell, SHELL_NORMAL,
 	      "----------------------------------------------------------\r\n");
 
-	for (i = 0; i < modules_cnt; i++) {
+	for (i = 0U; i < modules_cnt; i++) {
 		dynamic_lvl = log_filter_get(backend, CONFIG_LOG_DOMAIN_ID,
 					     i, true);
 		compiled_lvl = log_filter_get(backend, CONFIG_LOG_DOMAIN_ID,
@@ -148,7 +148,7 @@ static int module_id_get(const char *name)
 	const char *tmp_name;
 	u32_t i;
 
-	for (i = 0; i < modules_cnt; i++) {
+	for (i = 0U; i < modules_cnt; i++) {
 		tmp_name = log_source_name_get(CONFIG_LOG_DOMAIN_ID, i);
 
 		if (strncmp(tmp_name, name, 64) == 0) {
@@ -156,22 +156,6 @@ static int module_id_get(const char *name)
 		}
 	}
 	return -1;
-}
-
-static u32_t module_filter_set(const struct log_backend *backend,
-			       int module_id, u32_t level)
-{
-	u32_t compiled_lvl;
-
-	compiled_lvl = log_filter_get(backend, CONFIG_LOG_DOMAIN_ID,
-				      module_id, false);
-	if (level > compiled_lvl) {
-		level = compiled_lvl;
-	}
-
-	log_filter_set(backend, CONFIG_LOG_DOMAIN_ID, module_id, level);
-
-	return level;
 }
 
 static void filters_set(const struct shell *shell,
@@ -190,7 +174,9 @@ static void filters_set(const struct shell *shell,
 	for (i = 0; i < cnt; i++) {
 		id = all ? i : module_id_get(argv[i]);
 		if (id >= 0) {
-			u32_t set_lvl = module_filter_set(backend, id, level);
+			u32_t set_lvl = log_filter_set(backend,
+						       CONFIG_LOG_DOMAIN_ID,
+						       id, level);
 
 			if (set_lvl != level) {
 				const char *name;

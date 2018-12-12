@@ -66,17 +66,6 @@ foreach(file_name include include-fixed)
     )
   string(REGEX REPLACE "\n" "" _OUTPUT "${_OUTPUT}")
 
-  if(MSYS)
-    # TODO: Remove this when
-    # https://github.com/zephyrproject-rtos/zephyr/issues/4687 is
-    # resolved
-    execute_process(
-      COMMAND cygpath -u ${_OUTPUT}
-      OUTPUT_VARIABLE _OUTPUT
-      )
-    string(REGEX REPLACE "\n" "" _OUTPUT ${_OUTPUT})
-  endif()
-
   list(APPEND NOSTDINC ${_OUTPUT})
 endforeach()
 
@@ -93,15 +82,22 @@ else()
       -mthumb
       -mcpu=${GCC_M_CPU}
       )
+    list(APPEND TOOLCHAIN_LD_FLAGS
+      -mthumb
+      -mcpu=${GCC_M_CPU}
+      )
 
     include(${ZEPHYR_BASE}/cmake/fpu-for-gcc-m-cpu.cmake)
 
     if(CONFIG_FLOAT)
       list(APPEND TOOLCHAIN_C_FLAGS -mfpu=${FPU_FOR_${GCC_M_CPU}})
+      list(APPEND TOOLCHAIN_LD_FLAGS -mfpu=${FPU_FOR_${GCC_M_CPU}})
       if    (CONFIG_FP_SOFTABI)
         list(APPEND TOOLCHAIN_C_FLAGS -mfloat-abi=softfp)
+        list(APPEND TOOLCHAIN_LD_FLAGS -mfloat-abi=softfp)
       elseif(CONFIG_FP_HARDABI)
         list(APPEND TOOLCHAIN_C_FLAGS -mfloat-abi=hard)
+        list(APPEND TOOLCHAIN_LD_FLAGS -mfloat-abi=hard)
       endif()
     endif()
   elseif("${ARCH}" STREQUAL "arc")

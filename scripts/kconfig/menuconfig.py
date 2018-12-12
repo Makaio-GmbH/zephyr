@@ -1000,7 +1000,8 @@ def _prefer_toggle(item):
            (isinstance(item, Choice) and len(item.assignable) > 1)
 
 def _enter_menu(menu):
-    # Makes 'menu' the currently displayed menu. "Menu" here includes choices.
+    # Makes 'menu' the currently displayed menu. "Menu" here includes choices
+    # and symbols defined with the 'menuconfig' keyword.
 
     global _cur_menu
     global _shown
@@ -1131,9 +1132,10 @@ def _select_next_menu_entry():
         # (as determined by _SCROLL_OFFSET), increase the scroll by one. This
         # gives nice and non-jumpy behavior even when
         # _SCROLL_OFFSET >= _menu_win_height().
-        if _sel_node_i >= _menu_scroll + _menu_win_height() - _SCROLL_OFFSET:
-            _menu_scroll = min(_menu_scroll + 1,
-                               _max_scroll(_shown, _menu_win))
+        if _sel_node_i >= _menu_scroll + _menu_win_height() - _SCROLL_OFFSET \
+           and _menu_scroll < _max_scroll(_shown, _menu_win):
+
+            _menu_scroll += 1
 
 def _select_prev_menu_entry():
     # Selects the menu entry before the current one, adjusting the scroll if
@@ -1385,13 +1387,12 @@ def _shown_nodes(menu):
                 rec(node.list) if node.list and not node.is_menuconfig else []
 
             # Always show the node if it is the root of an implicit submenu
-            # with visible items, even when the node itself is invisible. This
+            # with visible items, even if the node itself is invisible. This
             # can happen e.g. if the symbol has an optional prompt
             # ('prompt "foo" if COND') that is currently invisible.
             if shown(node) or shown_children:
                 res.append(node)
-
-            res.extend(shown_children)
+                res += shown_children
 
             node = node.next
 
@@ -1420,9 +1421,23 @@ def _shown_nodes(menu):
         #
         # Note: Named choices are pretty broken in the C tools, and this is
         # super obscure, so you probably won't find much that relies on this.
-        return [node
-                for choice_node in menu.item.nodes
-                    for node in rec(choice_node.list)]
+
+        # Do some additional work to avoid listing choice symbols twice if all
+        # or part of the choice is copied in multiple locations (e.g. by
+        # including some Kconfig file multiple times). We give the prompts at
+        # the current location precedence.
+        seen_syms = {node.item for node in rec(menu.list)
+                     if isinstance(node.item, Symbol)}
+        res = []
+        for choice_node in menu.item.nodes:
+            for node in rec(choice_node.list):
+                # 'choice_node is menu' checks if we're dealing with the
+                # current location
+                if node.item not in seen_syms or choice_node is menu:
+                    res.append(node)
+                    if isinstance(node.item, Symbol):
+                        seen_syms.add(node.item)
+        return res
 
     return rec(menu.list)
 
@@ -1869,8 +1884,10 @@ def _jump_to_dialog():
         if sel_node_i < len(matches) - 1:
             sel_node_i += 1
 
-            if sel_node_i >= scroll + matches_win.getmaxyx()[0] - _SCROLL_OFFSET:
-                scroll = min(scroll + 1, _max_scroll(matches, matches_win))
+            if sel_node_i >= scroll + matches_win.getmaxyx()[0] - _SCROLL_OFFSET \
+               and scroll < _max_scroll(matches, matches_win):
+
+                scroll += 1
 
     def select_prev_match():
         nonlocal sel_node_i
@@ -1991,15 +2008,23 @@ def _jump_to_dialog():
         elif c == curses.KEY_UP:
             select_prev_match()
 
-        elif c == curses.KEY_NPAGE:  # Page Down
+        elif c in (curses.KEY_NPAGE, "\x04"):  # Page Down/Ctrl-D
             # Keep it simple. This way we get sane behavior for small windows,
             # etc., for free.
             for _ in range(_PG_JUMP):
                 select_next_match()
 
-        elif c == curses.KEY_PPAGE:  # Page Up
+        # Page Up (no Ctrl-U, as it's already used by the edit box)
+        elif c == curses.KEY_PPAGE:
             for _ in range(_PG_JUMP):
                 select_prev_match()
+
+        elif c == curses.KEY_END:
+            sel_node_i = len(matches) - 1
+            scroll = _max_scroll(matches, matches_win)
+
+        elif c == curses.KEY_HOME:
+            sel_node_i = scroll = 0
 
         else:
             s, s_i, hscroll = _edit_text(c, s, s_i, hscroll,
@@ -2040,8 +2065,8 @@ def _sorted_menu_comment_nodes(cached_nodes=[]):
         def prompt_text(mc):
             return mc.prompt[0]
 
-        cached_nodes += sorted(_kconf.menus, key=prompt_text) + \
-                        sorted(_kconf.comments, key=prompt_text)
+        cached_nodes += sorted(_kconf.menus, key=prompt_text)
+        cached_nodes += sorted(_kconf.comments, key=prompt_text)
 
     return cached_nodes
 
@@ -2155,7 +2180,7 @@ def _draw_jump_to_dialog(edit_box, matches_win, bot_sep_win, help_win,
 
     edit_box.erase()
 
-    _draw_frame(edit_box, "Jump to symbol")
+    _draw_frame(edit_box, "Jump to symbol/choice/menu/comment")
 
     # Draw arrows pointing up if the symbol list is scrolled down
     if scroll > 0:
@@ -2780,15 +2805,25 @@ def _node_str(node):
         # choices in y mode
         sym = node.item.selection
         if sym:
-            for node_ in sym.nodes:
-                if node_.prompt:
-                    s += " ({})".format(node_.prompt[0])
+            for sym_node in sym.nodes:
+                # Use the prompt used at this choice location, in case the
+                # choice symbol is defined in multiple locations
+                if sym_node.parent is node and sym_node.prompt:
+                    s += " ({})".format(sym_node.prompt[0])
+                    break
+            else:
+                # If the symbol isn't defined at this choice location, then
+                # just use whatever prompt we can find for it
+                for sym_node in sym.nodes:
+                    if sym_node.prompt:
+                        s += " ({})".format(sym_node.prompt[0])
+                        break
 
     # Print "--->" next to nodes that have menus that can potentially be
-    # entered. Add "(empty)" if the menu is empty. We don't allow those to be
+    # entered. Print "----" if the menu is empty. We don't allow those to be
     # entered.
     if node.is_menuconfig:
-        s += "  --->" if _shown_nodes(node) else "  ---> (empty)"
+        s += "  --->" if _shown_nodes(node) else "  ----"
 
     return s
 

@@ -155,7 +155,7 @@ static int cmd_ieee802154_disassociate(const struct shell *shell,
 
 static inline u32_t parse_channel_set(char *str_set)
 {
-	u32_t channel_set = 0;
+	u32_t channel_set = 0U;
 	char *p, *n;
 
 	p = str_set;
@@ -676,7 +676,3 @@ SHELL_CREATE_STATIC_SUBCMD_SET(ieee802154_commands)
 
 SHELL_CMD_REGISTER(ieee802154, &ieee802154_commands, "IEEE 802.15.4 commands",
 		   NULL);
-
-void ieee802154_shell_init(void)
-{
-}
