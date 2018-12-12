@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_MODULE_NAME net_gptp_md
-#define NET_LOG_LEVEL CONFIG_NET_GPTP_LOG_LEVEL
+#include <logging/log.h>
+LOG_MODULE_DECLARE(net_gptp, CONFIG_NET_GPTP_LOG_LEVEL);
 
 #include "gptp_messages.h"
 #include "gptp_md.h"
@@ -417,8 +417,10 @@ static void gptp_md_pdelay_req_timeout(struct k_timer *timer)
 		if (timer == &state->pdelay_timer) {
 			state->pdelay_timer_expired = true;
 
-			GPTP_STATS_INC(port,
-				       pdelay_allowed_lost_resp_exceed_count);
+			if (state->rcvd_pdelay_resp == 0) {
+				GPTP_STATS_INC(port,
+					pdelay_allowed_lost_resp_exceed_count);
+			}
 		}
 	}
 }

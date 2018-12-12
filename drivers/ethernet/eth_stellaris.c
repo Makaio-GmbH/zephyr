@@ -58,19 +58,12 @@ static void eth_stellaris_send_byte(struct device *dev, u8_t byte)
 	}
 }
 
-static int eth_stellaris_send(struct net_if *iface, struct net_pkt *pkt)
+static int eth_stellaris_send(struct device *dev, struct net_pkt *pkt)
 {
-	struct device *dev = net_if_get_device(iface);
 	struct eth_stellaris_runtime *dev_data = DEV_DATA(dev);
 	struct net_buf *frag;
 	u16_t head_len_left, i, data_len;
 	u8_t *eth_hdr;
-
-	if (!pkt->frags) {
-		LOG_ERR("No data to send");
-		net_pkt_unref(pkt);
-		return -ENODATA;
-	}
 
 	/* Frame transmission
 	 * First two bytes are data_len for frame,
@@ -105,26 +98,10 @@ static int eth_stellaris_send(struct net_if *iface, struct net_pkt *pkt)
 
 	if (dev_data->tx_err) {
 		dev_data->tx_err = false;
-		net_pkt_unref(pkt);
 		return -EIO;
 	}
 
-	if (IS_ENABLED(CONFIG_NET_STATISTICS_ETHERNET)) {
-		struct net_eth_hdr *pkt_hdr;
-
-		/* Update statistics counters */
-		eth_stats_update_bytes_tx(iface, net_pkt_get_len(pkt));
-		eth_stats_update_pkts_tx(iface);
-		pkt_hdr = NET_ETH_HDR(pkt);
-		if (net_eth_is_addr_multicast(&pkt_hdr->dst)) {
-			eth_stats_update_multicast_tx(iface);
-		} else if (net_eth_is_addr_broadcast(&pkt_hdr->dst)) {
-			eth_stats_update_broadcast_tx(iface);
-		}
-	}
-
-	LOG_DBG("pkt send %p len %d", pkt, net_pkt_get_len(pkt));
-	net_pkt_unref(pkt);
+	LOG_DBG("pkt sent %p len %d", pkt, data_len);
 
 	return 0;
 }
@@ -239,20 +216,6 @@ static void eth_stellaris_rx(struct device *dev)
 	if (ret < 0) {
 		LOG_ERR("Failed to place frame in RX Queue");
 		goto pkt_unref;
-	}
-
-	if (IS_ENABLED(CONFIG_NET_STATISTICS_ETHERNET)) {
-		struct net_eth_hdr *pkt_hdr;
-
-		/* Update statistics counters */
-		eth_stats_update_bytes_rx(iface, frame_len - 6);
-		eth_stats_update_pkts_rx(iface);
-		pkt_hdr = NET_ETH_HDR(pkt);
-		if (net_eth_is_addr_broadcast(&pkt_hdr->dst)) {
-			eth_stats_update_broadcast_rx(iface);
-		} else if (net_eth_is_addr_multicast(&pkt_hdr->dst)) {
-			eth_stats_update_multicast_rx(iface);
-		}
 	}
 
 	return;
@@ -387,8 +350,8 @@ struct eth_stellaris_runtime eth_data = {
 
 static const struct ethernet_api eth_stellaris_apis = {
 	.iface_api.init	= eth_stellaris_init,
-	.iface_api.send = eth_stellaris_send,
 	.get_stats = eth_stellaris_stats,
+	.send =  eth_stellaris_send,
 };
 
 NET_DEVICE_INIT(eth_stellaris, DT_ETH_DRV_NAME,
@@ -396,4 +359,3 @@ NET_DEVICE_INIT(eth_stellaris, DT_ETH_DRV_NAME,
 		CONFIG_ETH_INIT_PRIORITY,
 		&eth_stellaris_apis, ETHERNET_L2,
 		NET_L2_GET_CTX_TYPE(ETHERNET_L2), ETH_MTU);
-
