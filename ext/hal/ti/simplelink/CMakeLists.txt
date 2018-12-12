@@ -6,8 +6,8 @@ if(CONFIG_SIMPLELINK_HOST_DRIVER)
     source
     kernel/zephyr/dpl
     )
+  zephyr_compile_definitions_ifdef(CONFIG_NET_IPV6 SL_SUPPORT_IPV6)
   zephyr_compile_definitions(
-    SL_SUPPORT_IPV6
     SL_PLATFORM_MULTI_THREADED
     )
 endif()

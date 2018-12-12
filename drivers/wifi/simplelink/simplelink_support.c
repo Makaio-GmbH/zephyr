@@ -66,7 +66,7 @@ struct sl_connect_state sl_conn;
 static struct nwp_status nwp;
 
 /* Configure the device to a default state, resetting previous parameters .*/
-static s32_t configure_simplelink(void)
+__weak s32_t configure_simplelink_device(void)
 {
 	s32_t retval = -1;
 	s32_t mode = -1;
@@ -107,9 +107,11 @@ static s32_t configure_simplelink(void)
 	ASSERT_ON_ERROR(retval, WLAN_ERROR);
 
 	/* Disable Auto Provisioning*/
+/* TODO !!!!
 	retval = sl_WlanProvisioning(SL_WLAN_PROVISIONING_CMD_STOP, 0xFF, 0,
 				     NULL, 0x0);
 	ASSERT_ON_ERROR(retval, WLAN_ERROR);
+*/
 
 	/* Delete existing profiles */
 	retval = sl_WlanProfileDel(0xFF);
@@ -575,6 +577,8 @@ int _simplelink_disconnect(void)
 	return lretval;
 }
 
+extern s32_t configure_simplelink_device(void);
+
 int _simplelink_init(simplelink_wifi_cb_t wifi_cb)
 {
 	int retval;
@@ -582,8 +586,9 @@ int _simplelink_init(simplelink_wifi_cb_t wifi_cb)
 	__ASSERT(wifi_cb, "callback must be supplied");
 
 	/* Init the board: */
+#ifdef SOC_CC3220SF
 	CC3220SF_LAUNCHXL_init();
-
+#endif
 	/* Configure SimpleLink NWP: */
 	nwp.status = 0U;
 	nwp.role = ROLE_RESERVED;
@@ -591,8 +596,13 @@ int _simplelink_init(simplelink_wifi_cb_t wifi_cb)
 
 	(void)memset(&sl_conn, 0x0, sizeof(sl_conn));
 
-	retval = configure_simplelink();
+	retval = configure_simplelink_device();
 	__ASSERT(retval >= 0, "Unable to configure SimpleLink");
+
+	if(!retval)
+	{
+		LOG_INF("SimpleLink configured");
+	}
 
 	return retval;
 }
