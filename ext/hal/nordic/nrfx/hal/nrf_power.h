@@ -509,6 +509,25 @@ typedef enum
     NRF_POWER_MAINREGSTATUS_HIGH   = POWER_MAINREGSTATUS_MAINREGSTATUS_High    /**< High voltage mode. Voltage supplied on VDDH.  */
 }nrf_power_mainregstatus_t;
 
+/**
+ * @brief REG0 voltage definitions
+ */
+#if defined(CONFIG_NRF52840_REG0_1V8)
+#define NRF_POWER_REG0_VOLT	UICR_REGOUT0_VOUT_1V8
+#elif defined(CONFIG_NRF52840_REG0_2V1)
+#define NRF_POWER_REG0_VOLT	UICR_REGOUT0_VOUT_2V1
+#elif defined(CONFIG_NRF52840_REG0_2V4)
+#define NRF_POWER_REG0_VOLT	UICR_REGOUT0_VOUT_2V4
+#elif defined(CONFIG_NRF52840_REG0_2V7)
+#define NRF_POWER_REG0_VOLT	UICR_REGOUT0_VOUT_2V7
+#elif defined(CONFIG_NRF52840_REG0_3V0)
+#define NRF_POWER_REG0_VOLT	UICR_REGOUT0_VOUT_3V0
+#elif defined(CONFIG_NRF52840_REG0_3V3)
+#define NRF_POWER_REG0_VOLT	UICR_REGOUT0_VOUT_3V3
+#else
+#define NRF_POWER_REG0_VOLT	UICR_REGOUT0_VOUT_DEFAULT
+#endif
+
 #endif /* NRF_POWER_HAS_VDDH */
 
 #if NRF_POWER_HAS_RAMPOWER_REGS
@@ -845,6 +864,13 @@ __STATIC_INLINE bool nrf_power_usbregstatus_vbusdet_get(void);
  * @sa nrf_power_usbregstatus_get
  */
 __STATIC_INLINE bool nrf_power_usbregstatus_outrdy_get(void);
+
+/**
+ * @brief Sets REG0 voltage level to configured value
+ * @note Only valid when in high voltage mode
+ */
+__STATIC_INLINE void nrf_power_reg0_voltage_set(void);
+
 #endif /* NRF_POWER_HAS_USBREG */
 
 #ifndef SUPPRESS_INLINE_IMPLEMENTATION
@@ -1022,6 +1048,32 @@ __STATIC_INLINE bool nrf_power_usbregstatus_outrdy_get(void)
 {
     return (nrf_power_usbregstatus_get() &
         NRF_POWER_USBREGSTATUS_OUTPUTRDY_MASK) != 0;
+}
+
+__STATIC_INLINE void nrf_power_reg0_voltage_set(void)
+{
+	if ((nrf_power_mainregstatus_get() == NRF_POWER_MAINREGSTATUS_HIGH) &&
+		((NRF_UICR->REGOUT0 & UICR_REGOUT0_VOUT_Msk) ==
+		 (UICR_REGOUT0_VOUT_DEFAULT << UICR_REGOUT0_VOUT_Pos))) {
+
+		NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Wen << NVMC_CONFIG_WEN_Pos;
+		while (NRF_NVMC->READY == NVMC_READY_READY_Busy) {
+			;
+		}
+
+		NRF_UICR->REGOUT0 =
+				(NRF_UICR->REGOUT0 & ~((uint32_t)UICR_REGOUT0_VOUT_Msk)) |
+				(NRF_POWER_REG0_VOLT << UICR_REGOUT0_VOUT_Pos);
+
+		NRF_NVMC->CONFIG = NVMC_CONFIG_WEN_Ren << NVMC_CONFIG_WEN_Pos;
+		while (NRF_NVMC->READY == NVMC_READY_READY_Busy) {
+			;
+		}
+
+		/* a reset is required for changes to take effect */
+		NVIC_SystemReset();
+	}
+
 }
 #endif /* NRF_POWER_HAS_USBREG */
 

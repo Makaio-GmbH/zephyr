@@ -57,6 +57,10 @@ static int nordicsemi_nrf52_init(struct device *arg)
 	NRF_NVMC->ICACHECNF = NVMC_ICACHECNF_CACHEEN_Msk;
 #endif
 
+#if defined(NRF_POWER_REG0_VOLT)
+	nrf_power_reg0_voltage_set();
+#endif
+
 #if defined(CONFIG_SOC_DCDC_NRF52X)
 	nrf_power_dcdcen_set(true);
 #endif
@@ -77,5 +81,7 @@ void z_arch_busy_wait(u32_t time_us)
 {
 	nrfx_coredep_delay_us(time_us);
 }
+
+
 
 SYS_INIT(nordicsemi_nrf52_init, PRE_KERNEL_1, 0);
