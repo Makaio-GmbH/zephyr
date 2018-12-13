@@ -6,8 +6,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_MODULE_NAME net_test
-#define NET_LOG_LEVEL CONFIG_NET_IPV6_LOG_LEVEL
+#include <logging/log.h>
+LOG_MODULE_REGISTER(net_test, CONFIG_NET_IPV6_LOG_LEVEL);
 
 #include <zephyr/types.h>
 #include <stdbool.h>
@@ -1001,7 +1001,7 @@ static void test_address_lifetime(void)
  */
 static void test_change_ll_addr(void)
 {
-	u8_t new_mac[] = { 00, 01, 02, 03, 04, 05 };
+	static u8_t new_mac[] = { 00, 01, 02, 03, 04, 05 };
 	struct net_linkaddr_storage *ll;
 	struct net_linkaddr *ll_iface;
 	struct net_pkt *pkt;

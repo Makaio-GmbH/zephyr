@@ -27,6 +27,12 @@ cmake_minimum_required(VERSION 3.8.2)
 
 cmake_policy(SET CMP0002 NEW)
 
+if(NOT (${CMAKE_VERSION} VERSION_LESS "3.13.0"))
+  # Use the old CMake behaviour until 3.13.x is required and the build
+  # scripts have been ported to the new behaviour.
+  cmake_policy(SET CMP0079 OLD)
+endif()
+
 define_property(GLOBAL PROPERTY ZEPHYR_LIBS
     BRIEF_DOCS "Global list of all Zephyr CMake libs that should be linked in"
     FULL_DOCS  "Global list of all Zephyr CMake libs that should be linked in.
@@ -61,6 +67,8 @@ set(APPLICATION_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR} CACHE PATH "Application B
 set(__build_dir ${CMAKE_CURRENT_BINARY_DIR}/zephyr)
 
 set(PROJECT_BINARY_DIR ${__build_dir})
+
+add_custom_target(code_data_relocation_target)
 
 # CMake's 'project' concept has proven to not be very useful for Zephyr
 # due in part to how Zephyr is organized and in part to it not fitting well
@@ -338,6 +346,7 @@ Enable Qemu supported ethernet driver like e1000 at drivers/ethernet")
 endif()
 
 zephyr_library_named(app)
+set_property(TARGET app PROPERTY ARCHIVE_OUTPUT_DIRECTORY app)
 
 add_subdirectory(${ZEPHYR_BASE} ${__build_dir})
 

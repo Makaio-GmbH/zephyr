@@ -10,7 +10,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_MODULE_NAME net_shell
+#include <logging/log.h>
+LOG_MODULE_REGISTER(net_shell, LOG_LEVEL_DBG);
 
 #include <zephyr.h>
 #include <stdlib.h>
@@ -1152,11 +1153,6 @@ static int cmd_net_allocs(const struct shell *shell, size_t argc, char *argv[])
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if CONFIG_NET_PKT_LOG_LEVEL >= LOG_LEVEL_DBG
 	user_data.shell = shell;
 
@@ -1164,8 +1160,8 @@ static int cmd_net_allocs(const struct shell *shell, size_t argc, char *argv[])
 	PR("memory\t\tStatus\tPool\tFunction alloc -> freed\n");
 	net_pkt_allocs_foreach(allocs_cb, &user_data);
 #else
-	PR_INFO("Enable CONFIG_NET_DEBUG_NET_PKT to see allocations.\n");
-#endif /* CONFIG_NET_DEBUG_NET_PKT */
+	PR_INFO("Enable CONFIG_NET_PKT_LOG_LEVEL_DBG to see allocations.\n");
+#endif /* CONFIG_NET_PKT_LOG_LEVEL >= LOG_LEVEL_DBG */
 
 	return 0;
 }
@@ -1380,11 +1376,6 @@ static int cmd_net_app(const struct shell *shell, size_t argc, char *argv[])
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if CONFIG_NET_APP_LOG_LEVEL >= LOG_LEVEL_DBG
 	if (IS_ENABLED(CONFIG_NET_APP_SERVER)) {
 		user_data.shell = shell;
@@ -1458,11 +1449,6 @@ static int cmd_net_arp(const struct shell *shell, size_t argc, char *argv[])
 
 	ARG_UNUSED(argc);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_ARP)
 	if (!argv[arg]) {
 		/* ARP cache content */
@@ -1488,11 +1474,6 @@ static int cmd_net_arp_flush(const struct shell *shell, size_t argc,
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_ARP)
 	PR("Flushing ARP cache.\n");
 	net_arp_clear_cache(NULL);
@@ -1510,11 +1491,6 @@ static int cmd_net_conn(const struct shell *shell, size_t argc, char *argv[])
 
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 	PR("     Context   \tIface         Flags Local           \tRemote\n");
 
@@ -1693,11 +1669,6 @@ static int cmd_net_dns_cancel(const struct shell *shell, size_t argc,
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_DNS_RESOLVER)
 	ctx = dns_resolve_get_default();
 	if (!ctx) {
@@ -1731,10 +1702,6 @@ static int cmd_net_dns_cancel(const struct shell *shell, size_t argc,
 static int cmd_net_dns_query(const struct shell *shell, size_t argc,
 			     char *argv[])
 {
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_DNS_RESOLVER)
 #define DNS_TIMEOUT K_MSEC(2000) /* ms */
@@ -1791,11 +1758,6 @@ static int cmd_net_dns(const struct shell *shell, size_t argc, char *argv[])
 #if defined(CONFIG_DNS_RESOLVER)
 	struct dns_resolve_context *ctx;
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_DNS_RESOLVER)
 	if (argv[1]) {
@@ -2338,11 +2300,6 @@ static int cmd_net_gptp_port(const struct shell *shell, size_t argc,
 	int port;
 #endif
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_GPTP)
 	if (!argv[arg]) {
 		PR_WARNING("Port number must be given.\n");
@@ -2374,11 +2331,6 @@ static int cmd_net_gptp(const struct shell *shell, size_t argc, char *argv[])
 	int count = 0;
 	int arg = 1;
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_GPTP)
 	if (argv[arg]) {
@@ -2497,11 +2449,6 @@ static int http_monitor_count;
 static int cmd_net_http_monitor(const struct shell *shell, size_t argc,
 				char *argv[])
 {
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_DEBUG_HTTP_CONN) && defined(CONFIG_HTTP_SERVER)
 	PR_INFO("Activating HTTP monitor. Type \"net http\" "
 		"to disable HTTP connection monitoring.\n");
@@ -2523,11 +2470,6 @@ static int cmd_net_http(const struct shell *shell, size_t argc, char *argv[])
 	struct net_shell_user_data user_data;
 	int arg = 2;
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_DEBUG_HTTP_CONN) && defined(CONFIG_HTTP_SERVER)
 	http_monitor_count = 0;
@@ -2580,11 +2522,6 @@ static int cmd_net_iface_up(const struct shell *shell, size_t argc,
 	struct net_if *iface;
 	int idx, ret;
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 	idx = get_iface_idx(shell, argv[1]);
 	if (idx < 0) {
 		return -ENOEXEC;
@@ -2617,11 +2554,6 @@ static int cmd_net_iface_down(const struct shell *shell, size_t argc,
 {
 	struct net_if *iface;
 	int idx, ret;
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 	idx = get_iface_idx(shell, argv[1]);
 	if (idx < 0) {
@@ -2721,10 +2653,6 @@ static int cmd_net_ipv6(const struct shell *shell, size_t argc, char *argv[])
 #if defined(CONFIG_NET_IPV6)
 	struct net_shell_user_data user_data;
 #endif
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 	PR("IPv6 support                              : %s\n",
 	   IS_ENABLED(CONFIG_NET_IPV6) ?
@@ -2791,11 +2719,6 @@ static int cmd_net_iface(const struct shell *shell, size_t argc, char *argv[])
 	struct net_if *iface = NULL;
 	struct net_shell_user_data user_data;
 	int idx;
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 	if (argv[1]) {
 		idx = get_iface_idx(shell, argv[1]);
@@ -2912,11 +2835,6 @@ static int cmd_net_mem(const struct shell *shell, size_t argc, char *argv[])
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 	net_pkt_get_info(&rx, &tx, &rx_data, &tx_data);
 
 	PR("Fragment length %d bytes\n", CONFIG_NET_BUF_DATA_SIZE);
@@ -2975,11 +2893,6 @@ static int cmd_net_nbr_rm(const struct shell *shell, size_t argc,
 	struct in6_addr addr;
 	int ret;
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_IPV6)
 	if (!argv[1]) {
@@ -3081,11 +2994,6 @@ static int cmd_net_nbr(const struct shell *shell, size_t argc, char *argv[])
 
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_IPV6)
 	user_data.shell = shell;
@@ -3247,11 +3155,6 @@ static int cmd_net_ping(const struct shell *shell, size_t argc, char *argv[])
 
 	ARG_UNUSED(argc);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 	host = argv[1];
 
 	if (!host) {
@@ -3305,11 +3208,6 @@ static int cmd_net_route(const struct shell *shell, size_t argc, char *argv[])
 
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_ROUTE) || defined(CONFIG_NET_ROUTE_MCAST)
 	user_data.shell = shell;
@@ -3389,11 +3287,6 @@ static int cmd_net_rpl(const struct shell *shell, size_t argc, char *argv[])
 
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_RPL)
 	mode = net_rpl_get_mode();
@@ -3551,11 +3444,6 @@ static int cmd_net_stacks(const struct shell *shell, size_t argc,
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 	for (info = __net_stack_start; info != __net_stack_end; info++) {
 		net_analyze_stack_get_values(K_THREAD_STACK_BUFFER(info->stack),
 					     info->size, &pcnt, &unused);
@@ -3631,11 +3519,6 @@ static int cmd_net_stats_all(const struct shell *shell, size_t argc,
 	struct net_shell_user_data user_data;
 #endif
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_STATISTICS)
 	user_data.shell = shell;
 
@@ -3663,11 +3546,6 @@ static int cmd_net_stats_iface(const struct shell *shell, size_t argc,
 	int idx;
 #endif
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_STATISTICS)
 #if defined(CONFIG_NET_STATISTICS_PER_INTERFACE)
@@ -3703,11 +3581,6 @@ static int cmd_net_stats_iface(const struct shell *shell, size_t argc,
 
 static int cmd_net_stats(const struct shell *shell, size_t argc, char *argv[])
 {
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_STATISTICS)
 	if (!argv[1]) {
 		cmd_net_stats_all(shell, argc, argv);
@@ -3940,11 +3813,6 @@ static int cmd_net_tcp_connect(const struct shell *shell, size_t argc,
 	u16_t port;
 #endif
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_TCP)
 	/* tcp connect <ip> port */
 	if (tcp_ctx && net_context_is_used(tcp_ctx)) {
@@ -3987,11 +3855,6 @@ static int cmd_net_tcp_send(const struct shell *shell, size_t argc,
 	struct net_shell_user_data user_data;
 	struct net_pkt *pkt;
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_TCP)
 	/* tcp send <data> */
@@ -4043,11 +3906,6 @@ static int cmd_net_tcp_close(const struct shell *shell, size_t argc,
 	int ret;
 #endif
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_TCP)
 	/* tcp close */
 	if (!tcp_ctx || !net_context_is_used(tcp_ctx)) {
@@ -4074,11 +3932,6 @@ static int cmd_net_tcp(const struct shell *shell, size_t argc, char *argv[])
 {
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 	return 0;
 }
@@ -4152,11 +4005,6 @@ static int cmd_net_vlan(const struct shell *shell, size_t argc, char *argv[])
 	int count;
 #endif
 
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
-
 #if defined(CONFIG_NET_VLAN)
 	count = 0;
 
@@ -4182,11 +4030,6 @@ static int cmd_net_vlan_add(const struct shell *shell, size_t argc,
 	char *endptr;
 	u32_t iface_idx;
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_VLAN)
 	/* vlan add <tag> <interface index> */
@@ -4259,11 +4102,6 @@ static int cmd_net_vlan_del(const struct shell *shell, size_t argc,
 	char *endptr;
 	u16_t tag;
 #endif
-
-	if (shell_help_requested(shell)) {
-		shell_help_print(shell, NULL, 0);
-		return -ENOEXEC;
-	}
 
 #if defined(CONFIG_NET_VLAN)
 	/* vlan del <tag> */

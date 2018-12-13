@@ -47,3 +47,4 @@ GRTAGS
 GTAGS
 
 .idea
+samples/boards/nrf52/power_mgr/cmake-build-debug

@@ -18,6 +18,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #include <net/net_pkt.h>
 #include <net/net_if.h>
 #include <net/ethernet.h>
+#include <ethernet/eth_stats.h>
 #include <soc.h>
 #include <misc/printk.h>
 #include <clock_control.h>
@@ -186,6 +187,10 @@ release_desc:
 		heth->Instance->DMARPDR = 0;
 	}
 
+	if (!pkt) {
+		eth_stats_update_errors_rx(dev_data->iface);
+	}
+
 	return pkt;
 }
 
@@ -212,6 +217,7 @@ static void rx_thread(void *arg1, void *unused1, void *unused2)
 			net_pkt_print_frags(pkt);
 			res = net_recv_data(dev_data->iface, pkt);
 			if (res < 0) {
+				eth_stats_update_errors_rx(dev_data->iface);
 				LOG_ERR("Failed to enqueue frame "
 					"into RX queue: %d", res);
 				net_pkt_unref(pkt);
@@ -257,6 +263,7 @@ static int eth_initialize(struct device *dev)
 {
 	struct eth_stm32_hal_dev_data *dev_data;
 	struct eth_stm32_hal_dev_cfg *cfg;
+	int ret = 0;
 
 	__ASSERT_NO_MSG(dev != NULL);
 
@@ -270,14 +277,19 @@ static int eth_initialize(struct device *dev)
 	__ASSERT_NO_MSG(dev_data->clock != NULL);
 
 	/* enable clock */
-	clock_control_on(dev_data->clock,
+	ret = clock_control_on(dev_data->clock,
 		(clock_control_subsys_t *)&cfg->pclken);
-	clock_control_on(dev_data->clock,
+	ret |= clock_control_on(dev_data->clock,
 		(clock_control_subsys_t *)&cfg->pclken_tx);
-	clock_control_on(dev_data->clock,
+	ret |= clock_control_on(dev_data->clock,
 		(clock_control_subsys_t *)&cfg->pclken_rx);
-	clock_control_on(dev_data->clock,
+	ret |= clock_control_on(dev_data->clock,
 		(clock_control_subsys_t *)&cfg->pclken_ptp);
+
+	if (ret) {
+		LOG_ERR("Failed to enable ethernet clock");
+		return -EIO;
+	}
 
 	__ASSERT_NO_MSG(cfg->config_func != NULL);
 

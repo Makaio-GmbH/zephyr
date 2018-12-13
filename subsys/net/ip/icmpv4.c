@@ -8,8 +8,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_MODULE_NAME net_icmpv4
-#define NET_LOG_LEVEL CONFIG_NET_ICMPV4_LOG_LEVEL
+#include <logging/log.h>
+LOG_MODULE_REGISTER(net_icmpv4, CONFIG_NET_ICMPV4_LOG_LEVEL);
 
 #include <errno.h>
 #include <misc/slist.h>
@@ -336,15 +336,13 @@ void net_icmpv4_unregister_handler(struct net_icmpv4_handler *handler)
 	sys_slist_find_and_remove(&handlers, &handler->node);
 }
 
-enum net_verdict net_icmpv4_input(struct net_pkt *pkt)
+enum net_verdict net_icmpv4_input(struct net_pkt *pkt, bool bcast)
 {
 	struct net_icmpv4_handler *cb;
 	struct net_icmp_hdr icmp_hdr;
-	int ret;
 
-	ret = net_icmpv4_get_hdr(pkt, &icmp_hdr);
-	if (ret < 0) {
-		NET_DBG("NULL ICMPv4 header - dropping");
+	if (net_icmpv4_get_hdr(pkt, &icmp_hdr) < 0) {
+		NET_DBG("DROP: NULL ICMPv4 header");
 		return NET_DROP;
 	}
 
@@ -353,13 +351,10 @@ enum net_verdict net_icmpv4_input(struct net_pkt *pkt)
 		goto drop;
 	}
 
-	if (net_ipv4_is_addr_bcast(net_pkt_iface(pkt),
-				   &NET_IPV4_HDR(pkt)->dst)) {
-		if (!IS_ENABLED(CONFIG_NET_ICMPV4_ACCEPT_BROADCAST) ||
-		    icmp_hdr.type != NET_ICMPV4_ECHO_REQUEST) {
-			NET_DBG("Dropping broadcast pkt");
-			goto drop;
-		}
+	if (bcast && (!IS_ENABLED(CONFIG_NET_ICMPV4_ACCEPT_BROADCAST) ||
+		      icmp_hdr.type != NET_ICMPV4_ECHO_REQUEST)) {
+		NET_DBG("DROP: broadcast pkt");
+		goto drop;
 	}
 
 	NET_DBG("ICMPv4 packet received type %d code %d",
