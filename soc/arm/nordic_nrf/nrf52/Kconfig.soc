@@ -222,3 +222,9 @@ config NRF_ENABLE_ICACHE
 	bool "Enable the instruction cache (I-Cache)"
 	depends on SOC_NRF52832 || SOC_NRF52840
 	default y
+
+config NRF_ENABLE_DCDC
+    depends on SOC_SERIES_NRF52X
+	bool "Enable DCDC mode"
+	select SOC_DCDC_NRF52X
+	default y
