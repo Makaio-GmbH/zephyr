@@ -32,24 +32,24 @@ struct tty_serial {
 };
 
 /**
- * @brief Initialize buffered serial port (classically known as tty).
+ * @brief Initialize serial port object (classically known as tty).
  *
- * "tty" device provides buffered, interrupt-driver access to an
- * underlying UART device.
+ * "tty" device provides support for buffered, interrupt-driven,
+ * timeout-controlled access to an underlying UART device. For
+ * completeness, it also support non-interrupt-driven, busy-polling
+ * access mode. After initialization, tty is in the "most conservative"
+ * unbuffered mode with infinite timeouts (this is guaranteed to work
+ * on any hardware). Users should configure buffers and timeouts as
+ * they need using functions tty_set_rx_buf(), tty_set_tx_buf(),
+ * tty_set_rx_timeout(), tty_set_tx_timeout().
  *
  * @param tty tty device structure to initialize
  * @param uart_dev underlying UART device to use (should support
  *                 interrupt-driven operation)
- * @param rxbuf pointer to receive buffer
- * @param rxbuf_sz size of receive buffer
- * @param txbuf pointer to transmit buffer
- * @param txbuf_sz size of transmit buffer
  *
- * @return N/A
+ * @return 0 on success, error code (<0) otherwise
  */
-void tty_init(struct tty_serial *tty, struct device *uart_dev,
-	      u8_t *rxbuf, u16_t rxbuf_sz,
-	      u8_t *txbuf, u16_t txbuf_sz);
+int tty_init(struct tty_serial *tty, struct device *uart_dev);
 
 /**
  * @brief Set receive timeout for tty device.
@@ -78,6 +78,34 @@ static inline void tty_set_tx_timeout(struct tty_serial *tty, s32_t timeout)
 {
 	tty->tx_timeout = timeout;
 }
+
+/**
+ * @brief Set receive buffer for tty device.
+ *
+ * Set receive buffer or switch to unbuffered operation for receive.
+ *
+ * @param tty tty device structure
+ * @param buf buffer, or NULL for unbuffered operation
+ * @param size buffer buffer size, 0 for unbuffered operation
+ * @return 0 on success, error code (<0) otherwise:
+ *    EINVAL: unsupported buffer (size)
+ */
+int tty_set_rx_buf(struct tty_serial *tty, void *buf, size_t size);
+
+/**
+ * @brief Set transmit buffer for tty device.
+ *
+ * Set transmit buffer or switch to unbuffered operation for transmit.
+ * Note that unbuffered mode is implicitly blocking, i.e. behaves as
+ * if tty_set_tx_timeout(K_FOREVER) was set.
+ *
+ * @param tty tty device structure
+ * @param buf buffer, or NULL for unbuffered operation
+ * @param size buffer buffer size, 0 for unbuffered operation
+ * @return 0 on success, error code (<0) otherwise:
+ *    EINVAL: unsupported buffer (size)
+ */
+int tty_set_tx_buf(struct tty_serial *tty, void *buf, size_t size);
 
 /**
  * @brief Read data from a tty device.
