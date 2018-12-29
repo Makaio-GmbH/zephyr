@@ -13,7 +13,7 @@
 
 #define LOG_LEVEL CONFIG_PM_LOG_LEVEL /* From power module Kconfig */
 #include <logging/log.h>
-LOG_MODULE_DECLARE(power);
+LOG_MODULE_DECLARE(power, CONFIG_PM_LOG_LEVEL);
 
 /*
  * FIXME: Remove the conditional inclusion of

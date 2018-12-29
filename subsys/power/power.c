@@ -13,7 +13,7 @@
 
 #define LOG_LEVEL CONFIG_PM_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_REGISTER(power);
+LOG_MODULE_REGISTER(power, CONFIG_PM_LOG_LEVEL);
 
 static int post_ops_done = 1;
 static enum power_states pm_state;

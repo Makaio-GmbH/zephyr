@@ -11,7 +11,7 @@
 
 #define LOG_LEVEL CONFIG_PM_LOG_LEVEL /* From power module Kconfig */
 #include <logging/log.h>
-LOG_MODULE_DECLARE(power);
+LOG_MODULE_DECLARE(power, CONFIG_PM_LOG_LEVEL);
 
 #define SECS_TO_TICKS		CONFIG_SYS_CLOCK_TICKS_PER_SEC
 
@@ -68,7 +68,7 @@ int sys_pm_policy_next_state(s32_t ticks, enum power_states *pm_state)
 	int i;
 
 	if ((ticks != K_FOREVER) && (ticks < pm_policy[0].min_residency)) {
-		LOG_ERR("Not enough time for PM operations: %d\n", ticks);
+		//LOG_ERR("Not enough time for PM operations: %d\n", ticks);
 		return SYS_PM_NOT_HANDLED;
 	}
 

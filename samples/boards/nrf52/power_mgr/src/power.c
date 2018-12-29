@@ -31,6 +31,8 @@ void resume_devices(void);
 static int post_ops_done = 1;
 static int pm_state;
 
+
+
 /* This Function decides which Low Power Mode to Enter based on Idleness.
  * In actual Application this decision can be made using time (ticks)
  * And RTC timer can be programmed to wake the device after time elapsed.
