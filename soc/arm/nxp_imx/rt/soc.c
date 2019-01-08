@@ -36,11 +36,9 @@ const clock_usb_pll_config_t usb1PllConfig = {
 
 #ifdef CONFIG_ETH_MCUX_0
 const clock_enet_pll_config_t ethPllConfig = {
-	.enableClkOutput0 = true,
-	.enableClkOutput1 = false,
-	.enableClkOutput2 = false,
-	.loopDivider0 = 1,
-	.loopDivider1 = 1
+	.enableClkOutput = true,
+	.enableClkOutput25M = false,
+	.loopDivider = 1,
 };
 #endif
 
@@ -135,11 +133,11 @@ static int imxrt_init(struct device *arg)
 	oldLevel = irq_lock();
 
 	/* Watchdog disable */
-	if (WDOG1->WCR & WDOG_WCR_WDE_MASK) {
+	if ((WDOG1->WCR & WDOG_WCR_WDE_MASK) != 0) {
 		WDOG1->WCR &= ~WDOG_WCR_WDE_MASK;
 	}
 
-	if (WDOG2->WCR & WDOG_WCR_WDE_MASK) {
+	if ((WDOG2->WCR & WDOG_WCR_WDE_MASK) != 0) {
 		WDOG2->WCR &= ~WDOG_WCR_WDE_MASK;
 	}
 
@@ -149,12 +147,12 @@ static int imxrt_init(struct device *arg)
 		| RTWDOG_CS_UPDATE_MASK;
 
 	/* Disable Systick which might be enabled by bootrom */
-	if (SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) {
+	if ((SysTick->CTRL & SysTick_CTRL_ENABLE_Msk) != 0) {
 		SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
 	}
 
 	SCB_EnableICache();
-	if (!(SCB->CCR & SCB_CCR_DC_Msk)) {
+	if ((SCB->CCR & SCB_CCR_DC_Msk) == 0) {
 		SCB_EnableDCache();
 	}
 

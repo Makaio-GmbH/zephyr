@@ -724,21 +724,21 @@ extern FUNC_NORETURN void k_thread_user_mode_enter(k_thread_entry_t entry,
 						   void *p3);
 
 /**
- * @brief Grant a thread access to a NULL-terminated  set of kernel objects
+ * @brief Grant a thread access to a set of kernel objects
  *
  * This is a convenience function. For the provided thread, grant access to
  * the remaining arguments, which must be pointers to kernel objects.
- * The final argument must be a NULL.
  *
  * The thread object must be initialized (i.e. running). The objects don't
  * need to be.
+ * Note that NULL shouldn't be passed as an argument.
  *
  * @param thread Thread to grant access to objects
- * @param ... NULL-terminated list of kernel object pointers
+ * @param ... list of kernel object pointers
  * @req K-THREAD-004
  */
-extern void __attribute__((sentinel))
-	k_thread_access_grant(struct k_thread *thread, ...);
+#define k_thread_access_grant(thread, ...) \
+	FOR_EACH_FIXED_ARG(k_object_access_grant, thread, __VA_ARGS__)
 
 /**
  * @brief Assign a resource memory pool to a thread
@@ -1110,10 +1110,10 @@ extern void k_sched_time_slice_set(s32_t slice, int prio);
  *
  * @note Can be called by ISRs.
  *
- * @return 0 if invoked by a thread.
- * @return Non-zero if invoked by an ISR.
+ * @return false if invoked by a thread.
+ * @return true if invoked by an ISR.
  */
-extern int k_is_in_isr(void);
+extern bool k_is_in_isr(void);
 
 /**
  * @brief Determine if code is running in a preemptible thread.
@@ -2560,7 +2560,7 @@ static inline void k_work_submit_to_queue(struct k_work_q *work_q,
 /**
  * @brief Submit a work item to a user mode workqueue
  *
- * Sumbits a work item to a workqueue that runs in user mode. A temporary
+ * Submits a work item to a workqueue that runs in user mode. A temporary
  * memory allocation is made from the caller's resource pool which is freed
  * once the worker thread consumes the k_work item. The workqueue
  * thread must have memory access to the k_work item being submitted. The caller
@@ -2589,7 +2589,7 @@ static inline int k_work_submit_to_user_queue(struct k_work_q *work_q,
 		/* Couldn't insert into the queue. Clear the pending bit
 		 * so the work item can be submitted again
 		 */
-		if (ret) {
+		if (ret != 0) {
 			atomic_clear_bit(work->flags, K_WORK_STATE_PENDING);
 		}
 	}
@@ -4211,7 +4211,7 @@ extern void *k_calloc(size_t nmemb, size_t size);
 /* private - implementation data created as needed, per-type */
 struct _poller {
 	struct k_thread *thread;
-	volatile int is_polling;
+	volatile bool is_polling;
 };
 
 /* private - types bit positions */
@@ -4608,7 +4608,7 @@ extern void _init_static_threads(void);
 /**
  * @internal
  */
-extern int _is_thread_essential(void);
+extern bool _is_thread_essential(void);
 /**
  * @internal
  */
