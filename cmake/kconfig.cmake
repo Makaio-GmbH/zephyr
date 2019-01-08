@@ -171,19 +171,19 @@ add_custom_target(config-sanitycheck DEPENDS ${DOTCONFIG})
 # re-introduced to the namespace through 'import_kconfig'.
 foreach (name ${cache_variable_names})
   if("${name}" MATCHES "^CONFIG_")
-	unset(${name})
-	unset(${name} CACHE)
+    unset(${name})
+    unset(${name} CACHE)
   endif()
 endforeach()
 
 # Parse the lines prefixed with CONFIG_ in the .config file from Kconfig
-import_kconfig(${DOTCONFIG})
+import_kconfig(CONFIG_ ${DOTCONFIG})
 
 # Re-introduce the CLI Kconfig symbols that survived
 foreach (name ${cache_variable_names})
   if("${name}" MATCHES "^CONFIG_")
-	if(DEFINED ${name})
-	  set(${name} ${${name}} CACHE STRING "")
-	endif()
+    if(DEFINED ${name})
+      set(${name} ${${name}} CACHE STRING "")
+    endif()
   endif()
 endforeach()

@@ -1080,7 +1080,7 @@ static void ipv6_frag_cb(struct net_ipv6_reassembly *reass,
 }
 #endif /* CONFIG_NET_IPV6_FRAGMENT */
 
-#if CONFIG_NET_PKT_LOG_LEVEL >= LOG_LEVEL_DBG
+#if defined(CONFIG_NET_DEBUG_NET_PKT_ALLOC)
 static void allocs_cb(struct net_pkt *pkt,
 		      struct net_buf *buf,
 		      const char *func_alloc,
@@ -1140,28 +1140,28 @@ buf:
 		}
 	}
 }
-#endif /* CONFIG_NET_PKT_LOG_LEVEL >= LOG_LEVEL_DBG */
+#endif /* CONFIG_NET_DEBUG_NET_PKT_ALLOC */
 
 /* Put the actual shell commands after this */
 
 static int cmd_net_allocs(const struct shell *shell, size_t argc, char *argv[])
 {
-#if CONFIG_NET_PKT_LOG_LEVEL >= LOG_LEVEL_DBG
+#if defined(CONFIG_NET_DEBUG_NET_PKT_ALLOC)
 	struct net_shell_user_data user_data;
 #endif
 
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-#if CONFIG_NET_PKT_LOG_LEVEL >= LOG_LEVEL_DBG
+#if defined(CONFIG_NET_DEBUG_NET_PKT_ALLOC)
 	user_data.shell = shell;
 
 	PR("Network memory allocations\n\n");
 	PR("memory\t\tStatus\tPool\tFunction alloc -> freed\n");
 	net_pkt_allocs_foreach(allocs_cb, &user_data);
 #else
-	PR_INFO("Enable CONFIG_NET_PKT_LOG_LEVEL_DBG to see allocations.\n");
-#endif /* CONFIG_NET_PKT_LOG_LEVEL >= LOG_LEVEL_DBG */
+	PR_INFO("Enable CONFIG_NET_DEBUG_NET_PKT_ALLOC to see allocations.\n");
+#endif /* CONFIG_NET_DEBUG_NET_PKT_ALLOC */
 
 	return 0;
 }
@@ -2452,7 +2452,7 @@ static int cmd_net_http_monitor(const struct shell *shell, size_t argc,
 #if defined(CONFIG_NET_DEBUG_HTTP_CONN) && defined(CONFIG_HTTP_SERVER)
 	PR_INFO("Activating HTTP monitor. Type \"net http\" "
 		"to disable HTTP connection monitoring.\n");
-	http_server_conn_monitor(http_server_cb, &count);
+	http_server_conn_monitor(http_server_cb, &http_monitor_count);
 #else
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
@@ -3033,10 +3033,11 @@ static inline void _remove_ipv6_ping_handler(void)
 
 static enum net_verdict _handle_ipv6_echo_reply(struct net_pkt *pkt)
 {
+	shell_command_enter(shell_for_ping);
 	PR_SHELL(shell_for_ping, "Received echo reply from %s to %s\n",
 		 net_sprint_ipv6_addr(&NET_IPV6_HDR(pkt)->src),
 		 net_sprint_ipv6_addr(&NET_IPV6_HDR(pkt)->dst));
-
+	shell_command_exit(shell_for_ping);
 	k_sem_give(&ping_timeout);
 	_remove_ipv6_ping_handler();
 
@@ -3107,10 +3108,11 @@ static inline void _remove_ipv4_ping_handler(void)
 
 static enum net_verdict _handle_ipv4_echo_reply(struct net_pkt *pkt)
 {
+	shell_command_enter(shell_for_ping);
 	PR_SHELL(shell_for_ping, "Received echo reply from %s to %s\n",
 		 net_sprint_ipv4_addr(&NET_IPV4_HDR(pkt)->src),
 		 net_sprint_ipv4_addr(&NET_IPV4_HDR(pkt)->dst));
-
+	shell_command_exit(shell_for_ping);
 	k_sem_give(&ping_timeout);
 	_remove_ipv4_ping_handler();
 
