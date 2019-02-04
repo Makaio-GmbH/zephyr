@@ -19,6 +19,21 @@ extern "C" {
 #endif
 
 /**
+* @brief Enables the SMP Bluetooth service.
+*
+* @return 0 on success; negative error code on failure.
+*/
+int smp_bt_enable(void);
+
+/**
+* @brief Enables the SMP Bluetooth service.
+*
+* @return 0 on success; negative error code on failure.
+*/
+int smp_bt_disable(void);
+
+
+/**
  * @brief Registers the SMP Bluetooth service.
  *
  * @return 0 on success; negative error code on failure.
