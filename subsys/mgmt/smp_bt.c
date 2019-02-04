@@ -21,6 +21,8 @@
 
 #include <mgmt/smp.h>
 
+#define SMP_BT_AUTOENABLE 0
+
 struct device;
 
 struct smp_bt_user_data {
@@ -28,6 +30,8 @@ struct smp_bt_user_data {
 };
 
 static struct zephyr_smp_transport smp_bt_transport;
+
+static bool svc_enabled = SMP_BT_AUTOENABLE;
 
 /* SMP service.
  * {8D53DC1D-1DB7-4CD3-868B-8A527460AA84}
@@ -51,6 +55,9 @@ static ssize_t smp_bt_chr_write(struct bt_conn *conn,
 				const void *buf, u16_t len, u16_t offset,
 				u8_t flags)
 {
+	//if(!svc_enabled)
+	//	return len;
+
 	struct smp_bt_user_data *ud;
 	struct net_buf *nb;
 
@@ -179,6 +186,18 @@ int smp_bt_register(void)
 int smp_bt_unregister(void)
 {
 	return bt_gatt_service_unregister(&smp_bt_svc);
+}
+
+int smp_bt_enable(void)
+{
+	svc_enabled = true;
+	return 0;
+}
+
+int smp_bt_disable(void)
+{
+	svc_enabled = false;
+	return 0;
 }
 
 static int smp_bt_init(struct device *dev)
