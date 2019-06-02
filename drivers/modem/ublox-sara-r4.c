@@ -320,18 +320,32 @@ static int send_at_cmd(struct modem_socket *sock,
 	ictx.last_error = 0;
 
 	LOG_DBG("OUT: [%s]", data);
+
 	mdm_receiver_send(&ictx.mdm_ctx, data, strlen(data));
 	mdm_receiver_send(&ictx.mdm_ctx, "\r\n", 2);
 
 	if (timeout == K_NO_WAIT) {
 		return 0;
 	}
-
+	struct device *gpio0_dev = device_get_binding(DT_GPIO_P0_DEV_NAME);
+	u32_t statValue;
 	if (!sock) {
 		k_sem_reset(&ictx.response_sem);
+		gpio_pin_read(gpio0_dev, 2, &statValue);
+		int prio = k_thread_priority_get((struct k_thread*)k_current_get());
+
+		LOG_DBG("pin val %u / prio %d", statValue, prio);
+		k_sleep(500);
+		gpio_pin_read(gpio0_dev, 2, &statValue);
+		LOG_DBG("pin val %u", statValue);
 		ret = k_sem_take(&ictx.response_sem, timeout);
 	} else {
 		k_sem_reset(&sock->sock_send_sem);
+		gpio_pin_read(gpio0_dev, 2, &statValue);
+		LOG_DBG("pin val %u", statValue);
+		k_sleep(500);
+		gpio_pin_read(gpio0_dev, 2, &statValue);
+		LOG_DBG("pin val %u", statValue);
 		ret = k_sem_take(&sock->sock_send_sem, timeout);
 	}
 
@@ -1154,7 +1168,9 @@ static void modem_rx(void)
 
 			/* look for matching data handlers */
 			i = -1;
+			LOG_HEXDUMP_DBG(rx_buf->data, rx_buf->len, "bla");
 			for (i = 0; i < ARRAY_SIZE(handlers); i++) {
+
 				if (net_buf_ncmp(rx_buf, handlers[i].cmd,
 						 handlers[i].cmd_len) == 0) {
 					/* found a matching handler */
@@ -1216,40 +1232,38 @@ static void modem_rx(void)
 
 static int modem_pin_init(void)
 {
+
 	LOG_INF("Setting Modem Pins");
 
 	gpio_pin_configure(ictx.gpio_port_dev[MDM_RESET],
-			  pinconfig[MDM_RESET].pin, GPIO_DIR_OUT);
+					   pinconfig[MDM_RESET].pin, GPIO_DIR_OUT);
 	gpio_pin_configure(ictx.gpio_port_dev[MDM_POWER],
-			  pinconfig[MDM_POWER].pin, GPIO_DIR_OUT);
+					   pinconfig[MDM_POWER].pin, GPIO_DIR_OUT);
 
 	LOG_DBG("MDM_RESET_PIN -> NOT_ASSERTED");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_RESET],
-		       pinconfig[MDM_RESET].pin, MDM_RESET_NOT_ASSERTED);
+				   pinconfig[MDM_RESET].pin, MDM_RESET_NOT_ASSERTED);
 
 	LOG_DBG("MDM_POWER_PIN -> DISABLE");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_POWER],
-		       pinconfig[MDM_POWER].pin, MDM_POWER_DISABLE);
+				   pinconfig[MDM_POWER].pin, MDM_POWER_DISABLE);
 	/* make sure module is powered off */
-	k_sleep(K_SECONDS(12));
+	k_sleep(150);
 
 	LOG_DBG("MDM_POWER_PIN -> ENABLE");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_POWER],
-		       pinconfig[MDM_POWER].pin, MDM_POWER_ENABLE);
-	k_sleep(K_SECONDS(1));
+				   pinconfig[MDM_POWER].pin, MDM_POWER_ENABLE);
+	k_sleep(150);
 
 	LOG_DBG("MDM_POWER_PIN -> DISABLE");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_POWER],
-		       pinconfig[MDM_POWER].pin, MDM_POWER_DISABLE);
-	k_sleep(K_SECONDS(1));
+				   pinconfig[MDM_POWER].pin, MDM_POWER_DISABLE);
+	/* make sure module is powered off */
+	k_sleep(150);
 
-	LOG_DBG("MDM_POWER_PIN -> ENABLE");
-	gpio_pin_write(ictx.gpio_port_dev[MDM_POWER],
-		       pinconfig[MDM_POWER].pin, MDM_POWER_ENABLE);
-	k_sleep(K_SECONDS(10));
-
-	gpio_pin_configure(ictx.gpio_port_dev[MDM_POWER],
-			  pinconfig[MDM_POWER].pin, GPIO_DIR_IN);
+	struct device *gpio0_dev = device_get_binding(DT_GPIO_P0_DEV_NAME);
+	gpio_pin_configure(gpio0_dev, 25, GPIO_DIR_OUT);
+	gpio_pin_write(gpio0_dev, 25, 0);
 
 	LOG_INF("... Done!");
 
@@ -1272,6 +1286,7 @@ static void modem_rssi_query_work(struct k_work *work)
 				       K_SECONDS(RSSI_TIMEOUT_SECS));
 }
 
+extern void makaio_stack_dump(const struct k_thread *thread, void *user_data);
 static void modem_reset(void)
 {
 	int ret = 0, retry_count = 0, counter = 0;
@@ -1293,11 +1308,15 @@ restart:
 	ret = -1;
 	while (counter++ < 50 && ret < 0) {
 		k_sleep(K_SECONDS(2));
-		ret = send_at_cmd(NULL, "AT", MDM_CMD_TIMEOUT);
+		ret = send_at_cmd(NULL, "AT&F0", MDM_CMD_TIMEOUT);
+		ret = send_at_cmd(NULL, "AT&F0", MDM_CMD_TIMEOUT);
 		if (ret < 0 && ret != -ETIMEDOUT) {
 			break;
 		}
 	}
+
+	k_sleep(1000000);
+
 
 	if (ret < 0) {
 		LOG_ERR("MODEM WAIT LOOP ERROR: %d", ret);
@@ -1318,6 +1337,7 @@ restart:
 		goto error;
 	}
 
+
 #if defined(CONFIG_BOARD_PARTICLE_BORON)
 	/* use external SIM */
 	ret = send_at_cmd(NULL, "AT+UGPIOC=23,0,0", MDM_CMD_TIMEOUT);
@@ -1330,18 +1350,7 @@ restart:
 	k_sleep(MDM_CMD_TIMEOUT);
 #endif
 
-	/* UNC messages for registration */
-	ret = send_at_cmd(NULL, "AT+CREG=1", MDM_CMD_TIMEOUT);
-	if (ret < 0) {
-		LOG_ERR("AT+CREG=1 ret:%d", ret);
-		goto error;
-	}
-
-	/* HEX receive data mode */
-	ret = send_at_cmd(NULL, "AT+UDCONF=1,1", MDM_CMD_TIMEOUT);
-	if (ret < 0) {
-		LOG_ERR("AT+UDCONF=1 ret:%d", ret);
-	}
+	k_thread_foreach(makaio_stack_dump, "BT_MESH");
 
 	/* query modem info */
 	LOG_INF("Querying modem information");
@@ -1375,11 +1384,13 @@ restart:
 		goto error;
 	}
 
+
+
 	if (strlen(CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO) > 0) {
 		/* use manual MCC/MNO entry */
 		ret = send_at_cmd(NULL, "AT+COPS=1,2,\""
 				  CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO "\"",
-				  MDM_CMD_TIMEOUT);
+				  K_SECONDS(300));
 	} else {
 		/* register operator automatically */
 		ret = send_at_cmd(NULL, "AT+COPS=0,0", MDM_REGISTRATION_TIMEOUT);
@@ -1484,7 +1495,6 @@ static int modem_init(struct device *dev)
 		LOG_ERR("Error registering modem receiver (%d)!", ret);
 		goto error;
 	}
-
 	/* start RX thread */
 	k_thread_create(&modem_rx_thread, modem_rx_stack,
 			K_THREAD_STACK_SIZEOF(modem_rx_stack),

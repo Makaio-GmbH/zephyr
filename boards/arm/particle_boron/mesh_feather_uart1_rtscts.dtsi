@@ -8,7 +8,7 @@
  *
  * NOTE: This file is replicated in particle_{argon,boron,xenon}.
  * Changes should be made in all instances. */
-&uart0 {
+&uart1 {
 	rts-pin = <33>;
 	cts-pin = <34>;
 };

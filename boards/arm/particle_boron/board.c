@@ -12,7 +12,7 @@ static int particle_boron_init(struct device *dev)
 {
 
 	ARG_UNUSED(dev);
-
+return 0;
 #if defined(CONFIG_MODEM_UBLOX_SARA_R4)
 	struct device *gpio_dev;
 

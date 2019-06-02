@@ -8,7 +8,6 @@
 #include <nordic/nrf52840_qiaa.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 #include "mesh_feather.dtsi"
-
 / {
 	model = "Particle Boron";
 	compatible = "particle,boron", "particle,feather",
