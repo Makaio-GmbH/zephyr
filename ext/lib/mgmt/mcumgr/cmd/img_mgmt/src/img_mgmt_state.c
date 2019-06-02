@@ -136,7 +136,9 @@ img_mgmt_state_set_pending(int slot, int permanent)
      * run if it is a loader in a split image setup.
      */
     if (state_flags & IMG_MGMT_STATE_F_CONFIRMED && slot != 0) {
-        return MGMT_ERR_EBADSTATE;
+    	printf("bad state!");
+    	return 2;
+        //return MGMT_ERR_EBADSTATE;
     }
 
     rc = img_mgmt_impl_write_pending(slot, permanent);
@@ -158,7 +160,8 @@ img_mgmt_state_confirm(void)
 
     /* Confirm disallowed if a test is pending. */
     if (img_mgmt_state_any_pending()) {
-        return MGMT_ERR_EBADSTATE;
+    	return 3;
+        //return MGMT_ERR_EBADSTATE;
     }
 
     rc = img_mgmt_impl_write_confirmed();

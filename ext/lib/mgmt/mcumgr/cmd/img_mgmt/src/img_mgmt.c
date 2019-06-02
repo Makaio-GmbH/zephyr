@@ -240,7 +240,9 @@ img_mgmt_erase(struct mgmt_ctxt *ctxt)
 
     if (img_mgmt_slot_in_use(1)) {
         /* No free slot. */
-        return MGMT_ERR_EBADSTATE;
+        printf("No free slot");
+        return 1;
+        //return MGMT_ERR_EBADSTATE;
     }
 
     rc = img_mgmt_impl_erase_slot();
