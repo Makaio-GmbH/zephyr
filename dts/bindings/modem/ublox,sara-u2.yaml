@@ -1,0 +1,47 @@
+#
+# Copyright (c) 2019, Makaio GmbH
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+---
+title: u-blox SARA-U2 modem
+version: 0.1
+
+description: >
+    This is a representation of the u-blox SARA-U2 modem.
+
+inherits:
+    !include uart-device.yaml
+
+properties:
+    compatible:
+      type: string
+      category: required
+      constraint: "ublox,sara-u2"
+      generation: define
+
+    label:
+      type: string
+      category: required
+      generation: define
+
+    mdm-power-gpios:
+      type: compound
+      category: required
+      generation: define, use-prop-name
+
+    mdm-reset-gpios:
+      type: compound
+      category: required
+      generation: define, use-prop-name
+
+    mdm-vint-gpios:
+      type: compound
+      category: required
+      generation: define, use-prop-name
+
+    mdm-ttlbuff-gpios:
+        type: compound
+        category: optional
+        generation: define, use-prop-name
+...
