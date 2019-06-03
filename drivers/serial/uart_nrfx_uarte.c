@@ -1175,7 +1175,6 @@ static void uarte_nrfx_set_power_state(struct device *dev, u32_t new_state)
 {
 	NRF_UARTE_Type *uarte = get_uarte_instance(dev);
 
-	LOG_ERR("new state: %u", new_state);
 	if (new_state == DEVICE_PM_ACTIVE_STATE) {
 		nrf_uarte_enable(uarte);
 #ifdef CONFIG_UART_ASYNC_API

@@ -32,7 +32,7 @@ void sys_pm_notify_power_state_entry(enum power_states state)
 		 * This power state is implemented by this sample.
 		 * Perform enter to the low power state by turning off LEDs.
 		 */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
+		gpio_pin_write(gpio_port, LED_1, LED_OFF);
 		gpio_pin_write(gpio_port, LED_2, LED_OFF);
 		k_cpu_idle();
 		break;
@@ -45,7 +45,7 @@ void sys_pm_notify_power_state_entry(enum power_states state)
 		 * handled by SoC-specific code. Here we just turn off the LEDs
 		 * to save power.
 		 */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
+		gpio_pin_write(gpio_port, LED_1, LED_OFF);
 		gpio_pin_write(gpio_port, LED_2, LED_OFF);
 
 		/* Nothing else to do */
@@ -69,7 +69,7 @@ void sys_pm_notify_power_state_exit(enum power_states state)
 
 		/* Perform exit from the low power state by turning on LEDs */
 		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		gpio_pin_write(gpio_port, LED_2, LED_ON);
 		break;
 
 	case SYS_POWER_STATE_SLEEP_3:
@@ -77,7 +77,7 @@ void sys_pm_notify_power_state_exit(enum power_states state)
 
 		/* Perform exit from the low power state by turning on LEDs */
 		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		gpio_pin_write(gpio_port, LED_2, LED_ON);
 		break;
 
 	case SYS_POWER_STATE_DEEP_SLEEP_1:
@@ -85,7 +85,7 @@ void sys_pm_notify_power_state_exit(enum power_states state)
 
 		/* Turn on LEDs which were powered down before deep sleep. */
 		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		gpio_pin_write(gpio_port, LED_2, LED_ON);
 		break;
 
 	default:
