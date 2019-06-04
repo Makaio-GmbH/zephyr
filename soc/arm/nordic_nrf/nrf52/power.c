@@ -14,6 +14,15 @@ LOG_MODULE_DECLARE(soc, CONFIG_SOC_LOG_LEVEL);
 void sys_set_power_state(enum power_states state)
 {
 	switch (state) {
+		/* CONSTANT LATENCY TASK */
+		case SYS_POWER_STATE_SLEEP_1:
+			nrf_power_task_trigger(NRF_POWER_TASK_CONSTLAT);
+			break;
+			/* LOW POWER TASK */
+		case SYS_POWER_STATE_SLEEP_2:
+			nrf_power_task_trigger(NRF_POWER_TASK_LOWPWR);
+			break;
+
 #ifdef CONFIG_SYS_POWER_DEEP_SLEEP_STATES
  #ifdef CONFIG_HAS_SYS_POWER_STATE_DEEP_SLEEP_1
 	case SYS_POWER_STATE_DEEP_SLEEP_1:
@@ -22,7 +31,7 @@ void sys_set_power_state(enum power_states state)
  #endif
 #endif
 	default:
-		LOG_ERR("Unsupported power state %u", state);
+		LOG_ERR("Unsupported deep sleep power state %u", state);
 		break;
 	}
 }
@@ -31,6 +40,11 @@ void sys_set_power_state(enum power_states state)
 void _sys_pm_power_state_exit_post_ops(enum power_states state)
 {
 	switch (state) {
+		case SYS_POWER_STATE_SLEEP_1:
+		case SYS_POWER_STATE_SLEEP_2:
+			/* Enable interrupts */
+			__set_BASEPRI(0);
+			break;
 #ifdef CONFIG_SYS_POWER_DEEP_SLEEP_STATES
  #ifdef CONFIG_HAS_SYS_POWER_STATE_DEEP_SLEEP_1
 	case SYS_POWER_STATE_DEEP_SLEEP_1:
@@ -39,7 +53,7 @@ void _sys_pm_power_state_exit_post_ops(enum power_states state)
  #endif
 #endif
 	default:
-		LOG_ERR("Unsupported power state %u", state);
+		LOG_ERR("Unsupported deep sleep power state %u", state);
 		break;
 	}
 
