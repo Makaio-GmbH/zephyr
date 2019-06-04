@@ -56,4 +56,8 @@ config MODEM_UBLOX_SARA_U2_INIT_PRIORITY
 	  Note that the priority needs to be lower than the net stack
 	  so that it can start before the networking sub-system.
 
+config MODEM_UBLOX_SARA_U2_SIGNAL_INTERVAL
+	int "Refresh interval for signal strength in seconds"
+	default 60
+
 endif # MODEM_UBLOX_SARA_U2

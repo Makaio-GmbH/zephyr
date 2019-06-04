@@ -24,6 +24,8 @@ LOG_MODULE_REGISTER(LOG_DOMAIN);
 #include <net/net_offload.h>
 #include <net/net_pkt.h>
 
+#include <drivers/modem/modem_api.h>
+
 #if defined(CONFIG_NET_IPV6)
 #include "ipv6.h"
 #endif
@@ -97,7 +99,7 @@ static const struct mdm_control_pinconfig pinconfig[] = {
 #define MDM_CMD_SEND_TIMEOUT		K_SECONDS(10)
 #define MDM_CMD_CONN_TIMEOUT		K_SECONDS(31)
 #define MDM_REGISTRATION_TIMEOUT	K_SECONDS(180)
-#define MDM_PROMPT_CMD_DELAY		K_MSEC(10)
+#define MDM_PROMPT_CMD_DELAY		K_MSEC(50)
 
 #define MDM_MAX_DATA_LENGTH		1024
 
@@ -194,6 +196,12 @@ struct modem_iface_ctx {
 
 	/* modem state */
 	int ev_creg;
+
+	/* modem in sleep mode */
+	enum modem_sleep_mode sleep_mode;
+
+	/* callback for incoming uart data */
+	modem_api_resp_cb resp_cb;
 };
 
 struct cmd_handler {
@@ -284,15 +292,23 @@ static char *modem_sprint_ip_addr(const struct sockaddr *addr)
 	}
 }
 
+static int api_wake(struct device *dev);
+
 /* Send an AT command with a series of response handlers */
 static int send_at_cmd(struct modem_socket *sock,
 			const u8_t *data, int timeout)
 {
 	int ret;
 
+	if(ictx.sleep_mode != MODEM_SLEEP_NONE)
+	{
+		/* FIXME: find a better solution */
+		api_wake(device_get_binding("MODEM_SARA_U2"));
+	}
+
 	ictx.last_error = 0;
 
-	LOG_DBG("OUT: [%s]", data);
+	LOG_DBG("OUT: [%s]", log_strdup(data));
 	mdm_receiver_send(&ictx.mdm_ctx, data, strlen(data));
 	mdm_receiver_send(&ictx.mdm_ctx, "\r\n", 2);
 
@@ -325,7 +341,9 @@ static int send_data(struct modem_socket *sock,
 	struct net_buf *frag;
 	char buf[sizeof("AT+USO**=#,!###.###.###.###!,#####,####\r\n")];
 
+
 	if (!sock) {
+		LOG_ERR("Socket not found");
 		return -EINVAL;
 	}
 
@@ -337,18 +355,20 @@ static int send_data(struct modem_socket *sock,
 	if (sock->ip_proto == IPPROTO_UDP) {
 		snprintk(buf, sizeof(buf), "AT+USOST=%d,\"%s\",%u,%u\r\n",
 			 sock->socket_id, modem_sprint_ip_addr(dst_addr),
-			 dst_port, net_buf_frags_len(frag));
+			 dst_port, net_buf_frags_len(frag)*2);
 	} else {
 		snprintk(buf, sizeof(buf), "AT+USOWR=%d,%u\r\n",
-			 sock->socket_id, net_buf_frags_len(frag));
+				 sock->socket_id, net_buf_frags_len(frag)*2);
 	}
 	mdm_receiver_send(&ictx.mdm_ctx, buf, strlen(buf));
+
 
 	/* Slight pause per spec so that @ prompt is received */
 	k_sleep(MDM_PROMPT_CMD_DELAY);
 
 	/* Loop through packet data and send */
 	while (frag) {
+
 		if (frag->len > 0) {
 			/*
 			 * HACK: Apparently enabling HEX transmit mode also
@@ -362,8 +382,8 @@ static int send_data(struct modem_socket *sock,
 			}
 		}
 		frag = frag->frags;
+		k_sleep(100);
 	}
-
 	k_sem_reset(&sock->sock_send_sem);
 	ret = k_sem_take(&sock->sock_send_sem, MDM_CMD_SEND_TIMEOUT);
 	if (ret == 0) {
@@ -1042,6 +1062,7 @@ static void on_cmd_socknotifydata(struct net_buf **buf, u16_t len)
 		 */
 		send_at_cmd(sock, sendbuf, K_NO_WAIT);
 	}
+
 }
 
 static void on_cmd_socknotifycreg(struct net_buf **buf, u16_t len)
@@ -1122,6 +1143,7 @@ static void modem_read_rx(struct net_buf **buf)
 				    rx_len, bytes_read);
 		}
 	}
+
 }
 
 /* RX thread */
@@ -1164,12 +1186,14 @@ static void modem_rx(void)
 		CMD_HANDLER("+USOCR: ", sockcreate),
 		CMD_HANDLER("+USOWR: ", sockwrite),
 		CMD_HANDLER("+USOST: ", sockwrite),
-		CMD_HANDLER("+USORD: ", sockread_tcp),
+			/* FIXME: Just for test */
+		//CMD_HANDLER("+USORD: ", sockread_tcp),
 		CMD_HANDLER("+USORF: ", sockread_udp),
 
 		/* UNSOLICITED RESPONSE CODES */
 		CMD_HANDLER("+UUSOCL: ", socknotifyclose),
-		CMD_HANDLER("+UUSORD: ", socknotifydata),
+			/* FIXME: Just for test */
+		//CMD_HANDLER("+UUSORD: ", socknotifydata),
 		CMD_HANDLER("+UUSORF: ", socknotifydata),
 		CMD_HANDLER("+CREG: ", socknotifycreg),
 	};
@@ -1190,6 +1214,11 @@ static void modem_rx(void)
 			len = net_buf_findcrlf(rx_buf, &frag, &offset);
 			if (!frag) {
 				break;
+			}
+
+			if(ictx.resp_cb)
+			{
+				ictx.resp_cb(NULL, rx_buf->data, len);
 			}
 
 			/* look for matching data handlers */
@@ -1333,9 +1362,11 @@ static void modem_rssi_query_work(struct k_work *work)
 	}
 
 	/* re-start RSSI query work */
+#if defined(CONFIG_MODEM_UBLOX_SARA_U2_SIGNAL_INTERVAL) && CONFIG_MODEM_UBLOX_SARA_U2_SIGNAL_INTERVAL > 0
 	k_delayed_work_submit_to_queue(&modem_workq,
 				       &ictx.rssi_query_work,
 				       K_SECONDS(RSSI_TIMEOUT_SECS));
+#endif
 }
 
 static void modem_reset(void)
@@ -1382,8 +1413,15 @@ restart:
 		goto error;
 	}
 
+	/* verbose error messages on */
+	ret = send_at_cmd(NULL, "AT+CMEE=1", MDM_CMD_TIMEOUT);
+	if (ret < 0) {
+		LOG_ERR("AT+CMEE=1 ret:%d", ret);
+		goto error;
+	}
+
 	/* enable power saving */
-	ret = send_at_cmd(NULL, "AT+UPSV=1", MDM_CMD_TIMEOUT);
+	ret = send_at_cmd(NULL, "AT+UPSV=1,500", MDM_CMD_TIMEOUT);
 	if (ret < 0) {
 		LOG_ERR("AT+UPSV=1 ret:%d", ret);
 		goto error;
@@ -1400,6 +1438,19 @@ restart:
 	ret = send_at_cmd(NULL, "AT+UDCONF=1,1", MDM_CMD_TIMEOUT);
 	if (ret < 0) {
 		LOG_ERR("AT+UDCONF=1 ret:%d", ret);
+	}
+
+	/* SMS text mode */
+	ret = send_at_cmd(NULL, "AT+CMGF=1", MDM_CMD_TIMEOUT);
+	if (ret < 0) {
+		LOG_ERR("AT+CMGF=1 ret:%d", ret);
+	}
+
+	/* enable SMS URCs */
+	ret = send_at_cmd(NULL, "AT+CNMI=1,2,0,0,0", MDM_CMD_TIMEOUT);
+	if (ret < 0) {
+		LOG_ERR("AT+CNMI=4 ret:%d", ret);
+		goto error;
 	}
 
 	/* query modem info */
@@ -1605,9 +1656,10 @@ static int offload_get(sa_family_t family,
 {
 	int ret;
 	char buf[sizeof("AT+USOCR=#,#####\r")];
+	char buf_upsda[sizeof("AT+UPSDA=#,#\r")];
 	struct modem_socket *sock = NULL;
 	int local_port = 0;
-
+	int sock_index = 0;
 	/* new socket */
 	sock = socket_get();
 	if (!sock) {
@@ -1620,6 +1672,24 @@ static int offload_get(sa_family_t family,
 	sock->ip_proto = ip_proto;
 	sock->context = *context;
 	sock->socket_id = MDM_MAX_SOCKETS + 1; /* socket # needs assigning */
+
+	/* I'm really not sure about this. I don't know how else to find socket # */
+	for(u8_t z = 0; z < ARRAY_SIZE(ictx.sockets); z++)
+	{
+		if(ictx.sockets[z].socket_id > 0)
+		{
+			sock_index = z;
+			break;
+		}
+	}
+
+	snprintk(buf_upsda, sizeof(buf_upsda), "AT+UPSDA=%d,3", sock_index);
+
+	/* activate PDP context */
+	ret = send_at_cmd(NULL, buf_upsda, MDM_CMD_TIMEOUT);
+	if (ret < 0) {
+		LOG_ERR("%s ret:%d", buf_upsda, ret);
+	}
 
 	local_port = ntohs(net_sin((struct sockaddr *)&(*context)->local)->sin_port);
 	if (local_port > 0) {
@@ -1874,7 +1944,7 @@ static int offload_recv(struct net_context *context,
 static int offload_put(struct net_context *context)
 {
 	struct modem_socket *sock;
-	char buf[sizeof("AT+USOCL=#\r")];
+	char buf[sizeof("AT+USOCL=#,1\r")];
 	int ret;
 
 	if (!context) {
@@ -1886,13 +1956,20 @@ static int offload_put(struct net_context *context)
 		/* socket was already closed?  Exit quietly here. */
 		return 0;
 	}
+	char buf_upsda[sizeof("AT+UPSDA=#,#\r")];
+	snprintk(buf_upsda, sizeof(buf_upsda), "AT+UPSDA=%d,4", sock->socket_id);
+
+	ret = send_at_cmd(sock, buf_upsda, MDM_CMD_TIMEOUT);
+	if (ret < 0) {
+		LOG_ERR("%s ret:%d", log_strdup(buf_upsda), ret);
+	}
+
+	k_sleep(1000);
 
 	snprintk(buf, sizeof(buf), "AT+USOCL=%d", sock->socket_id);
 
-	ret = send_at_cmd(sock, buf, MDM_CMD_TIMEOUT);
-	if (ret < 0) {
-		LOG_ERR("AT+USOCL=%d ret:%d", sock->socket_id, ret);
-	}
+	send_at_cmd(sock, buf, K_NO_WAIT);
+
 
 	/* clear last_socket_id */
 	ictx.last_socket_id = MDM_BASE_SOCKET_NUM - 1;
@@ -1943,8 +2020,72 @@ static void offload_iface_init(struct net_if *iface)
 	ctx->iface = iface;
 }
 
-static struct net_if_api api_funcs = {
+static int api_sleep(struct device *dev, enum modem_sleep_mode sleep_mode)
+{
+	struct modem_iface_ctx *ctx = dev->driver_data;
+
+	if(sleep_mode == MODEM_SLEEP_CONNECTED)
+	{
+#ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
+		LOG_DBG("Disable ttl buffer");
+	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
+				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_DISABLE);
+#endif
+	} else if(sleep_mode == MODEM_SLEEP_DEEP)
+	{
+		int ret = send_at_cmd(NULL, "AT+CFUN=0", MDM_CMD_TIMEOUT);
+		if(ret != 0)
+		{
+			LOG_ERR("AT+CFUN=0 failed");
+			return ret;
+		}
+	}
+
+	ctx->sleep_mode = sleep_mode;
+
+	return 0;
+}
+
+static int api_wake(struct device *dev)
+{
+	struct modem_iface_ctx *ctx = dev->driver_data;
+
+	if(ctx->sleep_mode == MODEM_SLEEP_CONNECTED)
+	{
+#ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
+		LOG_DBG("Enable ttl buffer");
+	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
+				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_ENABLE);
+#endif
+		k_sleep(50);
+	} else if(ctx->sleep_mode == MODEM_SLEEP_CONNECTED)
+	{
+		int ret = send_at_cmd(NULL, "AT+CFUN=1", MDM_CMD_TIMEOUT);
+		if(ret != 0)
+		{
+			LOG_ERR("AT+CFUN=1 failed");
+			return ret;
+		}
+	}
+
+	ctx->sleep_mode = MODEM_SLEEP_NONE;
+
+
+
+	return 0;
+}
+
+static int api_register_resp_cb(struct device *dev, modem_api_resp_cb cb)
+{
+	ictx.resp_cb = cb;
+	return 0;
+}
+
+static struct modem_driver_api api_funcs = {
 	.init	= offload_iface_init,
+	.sleep = api_sleep,
+	.wake = api_wake,
+	.register_resp_cb = &api_register_resp_cb
 };
 
 NET_DEVICE_OFFLOAD_INIT(modem_sara_u2, "MODEM_SARA_U2",

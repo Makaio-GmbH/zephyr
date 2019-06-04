@@ -178,6 +178,7 @@ int mdm_receiver_recv(struct mdm_receiver_context *ctx,
 int mdm_receiver_send(struct mdm_receiver_context *ctx,
 		      const u8_t *buf, size_t size)
 {
+	LOG_HEXDUMP_DBG(buf, size, "send");
 	if (!ctx) {
 		return -EINVAL;
 	}
