@@ -19,7 +19,7 @@ static int post_ops_done = 1;
 static enum power_states forced_pm_state = SYS_POWER_STATE_AUTO;
 static enum power_states pm_state;
 
-#ifdef CONFIG_SYS_PM_DEBUG
+
 
 struct pm_debug_info {
 	u32_t count;
@@ -52,18 +52,11 @@ static void sys_pm_log_debug_info(enum power_states state)
 void sys_pm_dump_debug_info(void)
 {
 	for (int i = 0; i < SYS_POWER_STATE_MAX; i++) {
-		LOG_DBG("PM:state = %d, count = %d last_res = %d, "
+		LOG_ERR("PM:state = %d, count = %d last_res = %d, "
 			"total_res = %d\n", i, pm_dbg_info[i].count,
 			pm_dbg_info[i].last_res, pm_dbg_info[i].total_res);
 	}
 }
-#else
-static inline void sys_pm_debug_start_timer(void) { }
-static inline void sys_pm_debug_stop_timer(void) { }
-static void sys_pm_log_debug_info(enum power_states state) { }
-void sys_pm_dump_debug_info(void) { }
-#endif
-
 __weak void sys_pm_notify_power_state_entry(enum power_states state)
 {
 	/* This function can be overridden by the application. */
@@ -91,7 +84,7 @@ enum power_states _sys_suspend(s32_t ticks)
 		   sys_pm_policy_next_state(ticks) : forced_pm_state;
 
 	if (pm_state == SYS_POWER_STATE_ACTIVE) {
-		LOG_DBG("No PM operations done.");
+		LOG_DBG("No PM operations done. (%d ticks)", ticks);
 		return pm_state;
 	}
 

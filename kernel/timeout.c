@@ -72,6 +72,7 @@ static s32_t next_timeout(void)
 	s32_t ret = to == NULL ? maxw : MAX(0, to->dticks - elapsed());
 
 #ifdef CONFIG_TIMESLICING
+
 	if (_current_cpu->slice_ticks && _current_cpu->slice_ticks < ret) {
 		ret = _current_cpu->slice_ticks;
 	}

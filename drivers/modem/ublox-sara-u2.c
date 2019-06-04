@@ -2026,11 +2026,7 @@ static int api_sleep(struct device *dev, enum modem_sleep_mode sleep_mode)
 
 	if(sleep_mode == MODEM_SLEEP_CONNECTED)
 	{
-#ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
-		LOG_DBG("Disable ttl buffer");
-	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
-				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_DISABLE);
-#endif
+
 	} else if(sleep_mode == MODEM_SLEEP_DEEP)
 	{
 		int ret = send_at_cmd(NULL, "AT+CFUN=0", MDM_CMD_TIMEOUT);
@@ -2040,6 +2036,12 @@ static int api_sleep(struct device *dev, enum modem_sleep_mode sleep_mode)
 			return ret;
 		}
 	}
+
+#ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
+	LOG_DBG("Disable ttl buffer");
+	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
+				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_DISABLE);
+#endif
 
 	ctx->sleep_mode = sleep_mode;
 
@@ -2052,13 +2054,8 @@ static int api_wake(struct device *dev)
 
 	if(ctx->sleep_mode == MODEM_SLEEP_CONNECTED)
 	{
-#ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
-		LOG_DBG("Enable ttl buffer");
-	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
-				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_ENABLE);
-#endif
-		k_sleep(50);
-	} else if(ctx->sleep_mode == MODEM_SLEEP_CONNECTED)
+
+	} else if(ctx->sleep_mode == MODEM_SLEEP_DEEP)
 	{
 		int ret = send_at_cmd(NULL, "AT+CFUN=1", MDM_CMD_TIMEOUT);
 		if(ret != 0)
@@ -2067,6 +2064,13 @@ static int api_wake(struct device *dev)
 			return ret;
 		}
 	}
+
+#ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
+	LOG_DBG("Enable ttl buffer");
+	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
+				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_ENABLE);
+#endif
+	k_sleep(50);
 
 	ctx->sleep_mode = MODEM_SLEEP_NONE;
 
