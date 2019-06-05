@@ -164,6 +164,12 @@ struct modem_socket {
 	void *recv_user_data;
 };
 
+struct modem_pwr_state {
+	bool powered_off;
+	bool ttlbuff_disabled;
+	bool uart_disabled;
+};
+
 struct modem_iface_ctx {
 	struct net_if *iface;
 	u8_t mac_addr[6];
@@ -197,8 +203,8 @@ struct modem_iface_ctx {
 	/* modem state */
 	int ev_creg;
 
-	/* modem in sleep mode */
-	enum modem_sleep_mode sleep_mode;
+	/* modem power state */
+	struct modem_pwr_state power_state;
 
 	/* callback for incoming uart data */
 	modem_api_resp_cb resp_cb;
@@ -300,7 +306,7 @@ static int send_at_cmd(struct modem_socket *sock,
 {
 	int ret;
 
-	if(ictx.sleep_mode != MODEM_SLEEP_NONE)
+	if(ictx.power_state.uart_disabled)
 	{
 		/* FIXME: find a better solution */
 		api_wake(device_get_binding("MODEM_SARA_U2"));
@@ -1300,11 +1306,7 @@ static int modem_pin_init(void)
 	gpio_pin_read(ictx.gpio_port_dev[MDM_VINT],pinconfig[MDM_VINT].pin, &powered_on_val);
 	if(powered_on_val)
 	{
-		while(true)
-		{
-			LOG_DBG("Modem is on");
-			k_sleep(1000);
-		}
+		return 0;
 	}
 
 	LOG_INF("Setting Modem Pins");
@@ -1346,6 +1348,10 @@ static int modem_pin_init(void)
 		k_sleep(1000);
 	}
 
+	gpio_pin_configure(ictx.gpio_port_dev[MDM_RESET],
+					   pinconfig[MDM_RESET].pin, GPIO_DIR_IN);
+	gpio_pin_configure(ictx.gpio_port_dev[MDM_POWER],
+					   pinconfig[MDM_POWER].pin, GPIO_DIR_IN);
 	LOG_INF("... Done!");
 
 	return 0;
@@ -1421,7 +1427,7 @@ restart:
 	}
 
 	/* enable power saving */
-	ret = send_at_cmd(NULL, "AT+UPSV=1,500", MDM_CMD_TIMEOUT);
+	ret = send_at_cmd(NULL, "AT+UPSV=1,50", MDM_CMD_TIMEOUT);
 	if (ret < 0) {
 		LOG_ERR("AT+UPSV=1 ret:%d", ret);
 		goto error;
@@ -2023,27 +2029,39 @@ static void offload_iface_init(struct net_if *iface)
 static int api_sleep(struct device *dev, enum modem_sleep_mode sleep_mode)
 {
 	struct modem_iface_ctx *ctx = dev->driver_data;
-
-	if(sleep_mode == MODEM_SLEEP_CONNECTED)
+	struct modem_pwr_state pwr_state = {0};
+	int ret = 0;
+/*
+ * 2b 55 44 43 4f 4e 46 3a |+UDCONF:
+20 34 30 2c 32 2c 32    | 40,2,2
+ */
+//	send_at_cmd(NULL, "AT+UDCONF=40,2,2", MDM_CMD_TIMEOUT);
+	switch (sleep_mode)
 	{
-
-	} else if(sleep_mode == MODEM_SLEEP_DEEP)
-	{
-		int ret = send_at_cmd(NULL, "AT+CFUN=0", MDM_CMD_TIMEOUT);
-		if(ret != 0)
-		{
-			LOG_ERR("AT+CFUN=0 failed");
-			return ret;
-		}
-	}
+		case MODEM_SLEEP_OFF:
+			ret = mdm_receiver_send (&ctx->mdm_ctx, "AT+CPWROFF\r\n", sizeof("AT+CPWROFF\r\n"));
+			if (ret < 0) {
+				LOG_ERR("AT+CPWROFF ret:%d", ret);
+			}
+			pwr_state.powered_off = true;
+		case MODEM_SLEEP_DEEP:
+			LOG_DBG("Disable interrupt");
+			mdm_receiver_sleep(&ctx->mdm_ctx);
+			pwr_state.uart_disabled = true;
+		case MODEM_SLEEP_CONNECTED:
 
 #ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
-	LOG_DBG("Disable ttl buffer");
+			LOG_DBG("Disable ttl buffer");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
 				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_DISABLE);
+			pwr_state.ttlbuff_disabled = true;
 #endif
+			break;
+		default:
+			LOG_ERR("Unknown sleep mode");
+	}
 
-	ctx->sleep_mode = sleep_mode;
+	ctx->power_state = pwr_state;
 
 	return 0;
 }
@@ -2052,29 +2070,30 @@ static int api_wake(struct device *dev)
 {
 	struct modem_iface_ctx *ctx = dev->driver_data;
 
-	if(ctx->sleep_mode == MODEM_SLEEP_CONNECTED)
-	{
+	struct modem_pwr_state *pwr_state = &ctx->power_state;
 
-	} else if(ctx->sleep_mode == MODEM_SLEEP_DEEP)
+	if(pwr_state->powered_off)
 	{
-		int ret = send_at_cmd(NULL, "AT+CFUN=1", MDM_CMD_TIMEOUT);
-		if(ret != 0)
-		{
-			LOG_ERR("AT+CFUN=1 failed");
-			return ret;
-		}
+		modem_reset();
+		pwr_state->powered_off = false;
 	}
-
 #ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
-	LOG_DBG("Enable ttl buffer");
+	if(pwr_state->ttlbuff_disabled)
+	{
+		LOG_DBG("Enable ttl buffer");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
 				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_ENABLE);
+		k_busy_wait(1000);
+		pwr_state->ttlbuff_disabled = false;
+	}
 #endif
-	k_sleep(50);
 
-	ctx->sleep_mode = MODEM_SLEEP_NONE;
-
-
+	if(pwr_state->uart_disabled)
+	{
+		mdm_receiver_wake(&ctx->mdm_ctx);
+		k_busy_wait(1000);
+		pwr_state->uart_disabled = false;
+	}
 
 	return 0;
 }
