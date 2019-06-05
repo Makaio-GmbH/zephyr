@@ -525,21 +525,9 @@ static struct db_stats {
 	size_t ccc_cfg;
 } stats;
 
-struct show_data {
-	const struct shell *shell;
-	struct bt_uuid_16 uuid;
-};
-
 static u8_t print_attr(const struct bt_gatt_attr *attr, void *user_data)
 {
-	struct show_data *data = user_data;
-
-	if (data->uuid.val) {
-		if (!bt_uuid_cmp(&data->uuid.uuid, attr->uuid)) {
-			goto print;
-		}
-		return BT_GATT_ITER_CONTINUE;
-	}
+	const struct shell *shell = user_data;
 
 	stats.attr_count++;
 
@@ -560,8 +548,7 @@ static u8_t print_attr(const struct bt_gatt_attr *attr, void *user_data)
 		stats.ccc_cfg += cfg->cfg_len;
 	}
 
-print:
-	shell_print(data->shell, "attr %p handle 0x%04x uuid %s perm 0x%02x",
+	shell_print(shell, "attr %p handle 0x%04x uuid %s perm 0x%02x",
 		    attr, attr->handle, bt_uuid_str(attr->uuid), attr->perm);
 
 	return BT_GATT_ITER_CONTINUE;
@@ -569,21 +556,20 @@ print:
 
 static int cmd_show_db(const struct shell *shell, size_t argc, char *argv[])
 {
-	struct show_data data;
+	struct bt_uuid_16 uuid;
 	size_t total_len;
 
 	memset(&stats, 0, sizeof(stats));
 
-	data.shell = shell;
-
 	if (argc > 1) {
-		data.uuid.uuid.type = BT_UUID_TYPE_16;
-		data.uuid.val = strtoul(argv[1], NULL, 16);
-	} else {
-		data.uuid.val = 0;
+		uuid.uuid.type = BT_UUID_TYPE_16;
+		uuid.val = strtoul(argv[1], NULL, 16);
+		bt_gatt_foreach_attr_type(0x0001, 0xffff, &uuid.uuid, NULL, 0,
+					  print_attr, (void *)shell);
+		return 0;
 	}
 
-	bt_gatt_foreach_attr(0x0001, 0xffff, print_attr, &data);
+	bt_gatt_foreach_attr(0x0001, 0xffff, print_attr, (void *)shell);
 
 	if (!stats.attr_count) {
 		shell_print(shell, "No attribute found");
@@ -763,6 +749,41 @@ static int cmd_unregister_test_svc(const struct shell *shell,
 	bt_gatt_service_unregister(&vnd1_svc);
 
 	shell_print(shell, "Unregistering test vendor services");
+	return 0;
+}
+
+static void notify_cb(struct bt_conn *conn, void *user_data)
+{
+	const struct shell *shell = user_data;
+
+	shell_print(shell, "Nofication sent to conn %p", conn);
+}
+
+static int cmd_notify(const struct shell *shell, size_t argc, char *argv[])
+{
+	struct bt_gatt_notify_params params;
+	u8_t data = 0;
+
+	if (!echo_enabled) {
+		shell_error(shell, "Nofication not enabled");
+		return -ENOEXEC;
+	}
+
+	if (argc > 1) {
+		data = strtoul(argv[1], NULL, 16);
+	}
+
+	memset(&params, 0, sizeof(params));
+
+	params.uuid = &vnd1_echo_uuid.uuid;
+	params.attr = vnd1_attrs;
+	params.data = &data;
+	params.len = sizeof(data);
+	params.func = notify_cb;
+	params.user_data = (void *)shell;
+
+	bt_gatt_notify_cb(NULL, 1, &params);
+
 	return 0;
 }
 
@@ -1018,10 +1039,7 @@ SHELL_STATIC_SUBCMD_SET_CREATE(gatt_cmds,
 	SHELL_CMD_ARG(unregister, NULL,
 		      "unregister pre-predefined test service",
 		      cmd_unregister_test_svc, 1, 0),
-
-	SHELL_CMD_ARG(unregister, NULL,
-		      "unregister pre-predefined test service",
-		      cmd_unregister_test_svc, 1, 0),
+	SHELL_CMD_ARG(notify, NULL, "[data]", cmd_notify, 1, 1),
 #endif /* CONFIG_BT_GATT_DYNAMIC_DB */
 	SHELL_SUBCMD_SET_END
 );

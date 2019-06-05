@@ -477,7 +477,7 @@ struct _thread_stack_info {
 	/* Stack start - Represents the start address of the thread-writable
 	 * stack area.
 	 */
-	u32_t start;
+	uintptr_t start;
 
 	/* Stack Size - Thread writable stack buffer size. Represents
 	 * the size of the actual area, starting from the start member,
@@ -2091,7 +2091,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_init(fifo) \
-	k_queue_init((struct k_queue *) fifo)
+	k_queue_init(&(fifo)->_queue)
 
 /**
  * @brief Cancel waiting on a FIFO queue.
@@ -2108,7 +2108,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_cancel_wait(fifo) \
-	k_queue_cancel_wait((struct k_queue *) fifo)
+	k_queue_cancel_wait(&(fifo)->_queue)
 
 /**
  * @brief Add an element to a FIFO queue.
@@ -2126,7 +2126,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_put(fifo, data) \
-	k_queue_append((struct k_queue *) fifo, data)
+	k_queue_append(&(fifo)->_queue, data)
 
 /**
  * @brief Add an element to a FIFO queue.
@@ -2146,7 +2146,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_alloc_put(fifo, data) \
-	k_queue_alloc_append((struct k_queue *) fifo, data)
+	k_queue_alloc_append(&(fifo)->_queue, data)
 
 /**
  * @brief Atomically add a list of elements to a FIFO.
@@ -2166,7 +2166,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_put_list(fifo, head, tail) \
-	k_queue_append_list((struct k_queue *) fifo, head, tail)
+	k_queue_append_list(&(fifo)->_queue, head, tail)
 
 /**
  * @brief Atomically add a list of elements to a FIFO queue.
@@ -2185,7 +2185,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_put_slist(fifo, list) \
-	k_queue_merge_slist((struct k_queue *) fifo, list)
+	k_queue_merge_slist(&(fifo)->_queue, list)
 
 /**
  * @brief Get an element from a FIFO queue.
@@ -2204,7 +2204,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_get(fifo, timeout) \
-	k_queue_get((struct k_queue *) fifo, timeout)
+	k_queue_get(&(fifo)->_queue, timeout)
 
 /**
  * @brief Query a FIFO queue to see if it has data available.
@@ -2221,7 +2221,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_is_empty(fifo) \
-	k_queue_is_empty((struct k_queue *) fifo)
+	k_queue_is_empty(&(fifo)->_queue)
 
 /**
  * @brief Peek element at the head of a FIFO queue.
@@ -2238,7 +2238,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_peek_head(fifo) \
-	k_queue_peek_head((struct k_queue *) fifo)
+	k_queue_peek_head(&(fifo)->_queue)
 
 /**
  * @brief Peek element at the tail of FIFO queue.
@@ -2253,7 +2253,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_peek_tail(fifo) \
-	k_queue_peek_tail((struct k_queue *) fifo)
+	k_queue_peek_tail(&(fifo)->_queue)
 
 /**
  * @brief Statically define and initialize a FIFO queue.
@@ -2308,7 +2308,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_init(lifo) \
-	k_queue_init((struct k_queue *) lifo)
+	k_queue_init(&(lifo)->_queue)
 
 /**
  * @brief Add an element to a LIFO queue.
@@ -2326,7 +2326,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_put(lifo, data) \
-	k_queue_prepend((struct k_queue *) lifo, data)
+	k_queue_prepend(&(lifo)->_queue, data)
 
 /**
  * @brief Add an element to a LIFO queue.
@@ -2346,7 +2346,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_alloc_put(lifo, data) \
-	k_queue_alloc_prepend((struct k_queue *) lifo, data)
+	k_queue_alloc_prepend(&(lifo)->_queue, data)
 
 /**
  * @brief Get an element from a LIFO queue.
@@ -2365,7 +2365,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_get(lifo, timeout) \
-	k_queue_get((struct k_queue *) lifo, timeout)
+	k_queue_get(&(lifo)->_queue, timeout)
 
 /**
  * @brief Statically define and initialize a LIFO queue.
@@ -4522,7 +4522,7 @@ extern void z_sys_power_save_idle_exit(s32_t ticks);
 #define z_except_reason(reason) do { \
 		printk("@ %s:%d:\n", __FILE__,  __LINE__); \
 		z_NanoFatalErrorHandler(reason, &_default_esf); \
-		CODE_UNREACHABLE; \
+		k_thread_abort(k_current_get()); \
 	} while (false)
 
 #endif /* _ARCH__EXCEPT */
@@ -4743,17 +4743,17 @@ static inline char *Z_THREAD_STACK_BUFFER(k_thread_stack_t *sym)
 #define K_MEM_PARTITION_DEFINE(name, start, size, attr) \
 	_ARCH_MEM_PARTITION_ALIGN_CHECK(start, size); \
 	struct k_mem_partition name =\
-		{ (u32_t)start, size, attr}
+		{ (uintptr_t)start, size, attr}
 #else
 #define K_MEM_PARTITION_DEFINE(name, start, size, attr) \
 	struct k_mem_partition name =\
-		{ (u32_t)start, size, attr}
+		{ (uintptr_t)start, size, attr}
 #endif /* _ARCH_MEM_PARTITION_ALIGN_CHECK */
 
 /* memory partition */
 struct k_mem_partition {
 	/* start address of memory partition */
-	u32_t start;
+	uintptr_t start;
 	/* size of memory partition */
 	u32_t size;
 #if defined(CONFIG_MEMORY_PROTECTION)
