@@ -194,6 +194,25 @@ int mdm_receiver_send(struct mdm_receiver_context *ctx,
 	return 0;
 }
 
+int mdm_receiver_sleep(struct mdm_receiver_context *ctx)
+{
+	LOG_ERR("Will send uart %s to sleep", log_strdup(ctx->uart_dev->config->name));
+	uart_irq_rx_disable(ctx->uart_dev);
+	k_busy_wait(200);
+	device_set_power_state(ctx->uart_dev, DEVICE_PM_LOW_POWER_STATE, NULL, NULL);
+	return 0;
+}
+
+int mdm_receiver_wake(struct mdm_receiver_context *ctx)
+{
+	LOG_ERR("Will wake uart %s", log_strdup(ctx->uart_dev->config->name));
+	device_set_power_state(ctx->uart_dev, DEVICE_PM_ACTIVE_STATE, NULL, NULL);
+	k_busy_wait(200);
+	uart_irq_rx_enable(ctx->uart_dev);
+
+	return 0;
+}
+
 int mdm_receiver_register(struct mdm_receiver_context *ctx,
 			  const char *uart_dev_name,
 			  u8_t *buf, size_t size)

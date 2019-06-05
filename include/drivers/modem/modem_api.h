@@ -23,10 +23,12 @@ extern "C" {
 enum modem_sleep_mode {
 	/** No sleep, stay awake */
 		MODEM_SLEEP_NONE,
-	/** Usually AT+CFUN=0 */
-		MODEM_SLEEP_DEEP,
-	/** Low power, but stay connected to network */
+	/** Low power, stay connected, uart/interrupts enabled */
 		MODEM_SLEEP_CONNECTED,
+	/** Lower power, stay connected, uart/interrupts disabled */
+		MODEM_SLEEP_DEEP,
+	/** Usually AT+CFUN=0 */
+		MODEM_SLEEP_OFF,
 };
 
 typedef void (*modem_api_resp_cb)(struct device *dev, u8_t *data, u16_t len);
