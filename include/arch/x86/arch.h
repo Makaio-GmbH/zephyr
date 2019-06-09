@@ -20,10 +20,12 @@
 #include <generated_dts_board.h>
 #include <mmustructs.h>
 #include <stdbool.h>
+#include "sys_io.h"
+#include "ffs.h"
 
 #ifndef _ASMLANGUAGE
 #include <arch/x86/asm_inline.h>
-#include <arch/x86/addr_types.h>
+#include <arch/common/addr_types.h>
 #include <arch/x86/segmentation.h>
 #endif
 
@@ -50,14 +52,6 @@ extern "C" {
 
 
 #ifndef _ASMLANGUAGE
-
-#ifdef CONFIG_INT_LATENCY_BENCHMARK
-void z_int_latency_start(void);
-void z_int_latency_stop(void);
-#else
-#define z_int_latency_start()  do { } while (false)
-#define z_int_latency_stop()   do { } while (false)
-#endif
 
 /* interrupt/exception/error related definitions */
 
@@ -422,8 +416,6 @@ static ALWAYS_INLINE unsigned int z_arch_irq_lock(void)
 {
 	unsigned int key = _do_irq_lock();
 
-	z_int_latency_start();
-
 	return key;
 }
 
@@ -448,9 +440,16 @@ static ALWAYS_INLINE void z_arch_irq_unlock(unsigned int key)
 		return;
 	}
 
-	z_int_latency_stop();
-
 	z_do_irq_unlock();
+}
+
+/**
+ * Returns true if interrupts were unlocked prior to the
+ * z_arch_irq_lock() call that produced the key argument.
+ */
+static ALWAYS_INLINE bool z_arch_irq_unlocked(unsigned int key)
+{
+	return (key & 0x200) != 0;
 }
 
 /**

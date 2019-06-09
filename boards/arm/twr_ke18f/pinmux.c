@@ -62,6 +62,8 @@ static int twr_ke18f_pinmux_init(struct device *dev)
 #ifdef CONFIG_BOARD_TWR_KE18F_SPI_0_PCS2
 	/* SPI0 PCS2 */
 	pinmux_pin_set(porte, 6, PORT_PCR_MUX(kPORT_MuxAlt2));
+#else
+	pinmux_pin_set(porte, 6, PORT_PCR_MUX(kPORT_MuxAsGpio));
 #endif
 
 #ifdef CONFIG_SPI_1
@@ -73,10 +75,14 @@ static int twr_ke18f_pinmux_init(struct device *dev)
 #ifdef CONFIG_BOARD_TWR_KE18F_SPI_1_PCS0
 	/* SPI1 PCS0 */
 	pinmux_pin_set(portd, 3, PORT_PCR_MUX(kPORT_MuxAlt3));
+#else
+	pinmux_pin_set(portd, 3, PORT_PCR_MUX(kPORT_MuxAsGpio));
 #endif
 #ifdef CONFIG_BOARD_TWR_KE18F_SPI_1_PCS2
 	/* SPI1 PCS2 */
 	pinmux_pin_set(porta, 16, PORT_PCR_MUX(kPORT_MuxAlt3));
+#else
+	pinmux_pin_set(porta, 16, PORT_PCR_MUX(kPORT_MuxAsGpio));
 #endif
 
 #ifdef CONFIG_BOARD_TWR_KE18F_FLEXIO_CLKOUT
@@ -104,6 +110,14 @@ static int twr_ke18f_pinmux_init(struct device *dev)
 	pinmux_pin_set(portc, 17, PORT_PCR_MUX(kPORT_MuxAsGpio));
 #endif
 	pinmux_pin_set(portc, 15, PORT_PCR_MUX(kPORT_MuxAsGpio));
+
+#ifdef CONFIG_ADC_0
+	/* Thermistor A, B */
+	pinmux_pin_set(porta, 0, PORT_PCR_MUX(kPORT_PinDisabledOrAnalog));
+	pinmux_pin_set(porta, 1, PORT_PCR_MUX(kPORT_PinDisabledOrAnalog));
+	/* Potentiometer */
+	pinmux_pin_set(portc, 14, PORT_PCR_MUX(kPORT_PinDisabledOrAnalog));
+#endif
 
 	return 0;
 }

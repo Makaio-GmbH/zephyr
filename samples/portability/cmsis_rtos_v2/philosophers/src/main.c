@@ -68,7 +68,7 @@ osSemaphoreId_t forks[NUM_PHIL];
 
 #define fork(x) (forks[x])
 
-#define STACK_SIZE 512
+#define STACK_SIZE CONFIG_CMSIS_V2_THREAD_MAX_STACK_SIZE
 static K_THREAD_STACK_ARRAY_DEFINE(stacks, NUM_PHIL, STACK_SIZE);
 static osThreadAttr_t thread_attr[] = {
 	{
@@ -252,4 +252,11 @@ void main(void)
 	display_demo_description();
 	init_objects();
 	start_threads();
+
+#ifdef CONFIG_COVERAGE
+	/* Wait a few seconds before main() exit, giving the sample the
+	 * opportunity to dump some output before coverage data gets emitted
+	 */
+	k_sleep(5000);
+#endif
 }

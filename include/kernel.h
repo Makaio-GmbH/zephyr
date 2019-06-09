@@ -186,9 +186,8 @@ struct _k_object_assignment {
 #define K_THREAD_ACCESS_GRANT(name_, ...) \
 	static void * const _CONCAT(_object_list_, name_)[] = \
 		{ __VA_ARGS__, NULL }; \
-	static __used __in_section_unique(object_access) \
-		const struct _k_object_assignment \
-		_CONCAT(_object_access_, name_) = \
+	static const Z_STRUCT_SECTION_ITERABLE(_k_object_assignment, \
+					_CONCAT(_object_access_, name_)) = \
 			{ (&_k_thread_obj_ ## name_), \
 			  (_CONCAT(_object_list_, name_)) }
 
@@ -477,7 +476,7 @@ struct _thread_stack_info {
 	/* Stack start - Represents the start address of the thread-writable
 	 * stack area.
 	 */
-	u32_t start;
+	uintptr_t start;
 
 	/* Stack Size - Thread writable stack buffer size. Represents
 	 * the size of the actual area, starting from the start member,
@@ -968,9 +967,8 @@ struct _static_thread_data {
 			entry, p1, p2, p3,                               \
 			prio, options, delay)                            \
 	K_THREAD_STACK_DEFINE(_k_thread_stack_##name, stack_size);	 \
-	struct k_thread _k_thread_obj_##name;			 \
-	struct _static_thread_data _k_thread_data_##name __aligned(4)    \
-		__in_section(_static_thread_data, static, name) =        \
+	struct k_thread _k_thread_obj_##name;				 \
+	Z_STRUCT_SECTION_ITERABLE(_static_thread_data, _k_thread_data_##name) =\
 		_THREAD_INITIALIZER(&_k_thread_obj_##name,		 \
 				    _k_thread_stack_##name, stack_size,  \
 				entry, p1, p2, p3, prio, options, delay, \
@@ -1468,8 +1466,7 @@ typedef void (*k_timer_stop_t)(struct k_timer *timer);
  * @param stop_fn   Function to invoke if the timer is stopped while running.
  */
 #define K_TIMER_DEFINE(name, expiry_fn, stop_fn) \
-	struct k_timer name \
-		__in_section(_k_timer, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_timer, name) = \
 		Z_TIMER_INITIALIZER(name, expiry_fn, stop_fn)
 
 /**
@@ -2050,8 +2047,7 @@ static inline void *z_impl_k_queue_peek_tail(struct k_queue *queue)
  * @param name Name of the queue.
  */
 #define K_QUEUE_DEFINE(name) \
-	struct k_queue name \
-		__in_section(_k_queue, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_queue, name) = \
 		_K_QUEUE_INITIALIZER(name)
 
 /** @} */
@@ -2091,7 +2087,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_init(fifo) \
-	k_queue_init((struct k_queue *) fifo)
+	k_queue_init(&(fifo)->_queue)
 
 /**
  * @brief Cancel waiting on a FIFO queue.
@@ -2108,7 +2104,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_cancel_wait(fifo) \
-	k_queue_cancel_wait((struct k_queue *) fifo)
+	k_queue_cancel_wait(&(fifo)->_queue)
 
 /**
  * @brief Add an element to a FIFO queue.
@@ -2126,7 +2122,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_put(fifo, data) \
-	k_queue_append((struct k_queue *) fifo, data)
+	k_queue_append(&(fifo)->_queue, data)
 
 /**
  * @brief Add an element to a FIFO queue.
@@ -2146,7 +2142,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_alloc_put(fifo, data) \
-	k_queue_alloc_append((struct k_queue *) fifo, data)
+	k_queue_alloc_append(&(fifo)->_queue, data)
 
 /**
  * @brief Atomically add a list of elements to a FIFO.
@@ -2166,7 +2162,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_put_list(fifo, head, tail) \
-	k_queue_append_list((struct k_queue *) fifo, head, tail)
+	k_queue_append_list(&(fifo)->_queue, head, tail)
 
 /**
  * @brief Atomically add a list of elements to a FIFO queue.
@@ -2185,7 +2181,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_put_slist(fifo, list) \
-	k_queue_merge_slist((struct k_queue *) fifo, list)
+	k_queue_merge_slist(&(fifo)->_queue, list)
 
 /**
  * @brief Get an element from a FIFO queue.
@@ -2204,7 +2200,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_get(fifo, timeout) \
-	k_queue_get((struct k_queue *) fifo, timeout)
+	k_queue_get(&(fifo)->_queue, timeout)
 
 /**
  * @brief Query a FIFO queue to see if it has data available.
@@ -2221,7 +2217,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_is_empty(fifo) \
-	k_queue_is_empty((struct k_queue *) fifo)
+	k_queue_is_empty(&(fifo)->_queue)
 
 /**
  * @brief Peek element at the head of a FIFO queue.
@@ -2238,7 +2234,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_peek_head(fifo) \
-	k_queue_peek_head((struct k_queue *) fifo)
+	k_queue_peek_head(&(fifo)->_queue)
 
 /**
  * @brief Peek element at the tail of FIFO queue.
@@ -2253,7 +2249,7 @@ struct k_fifo {
  * @req K-FIFO-001
  */
 #define k_fifo_peek_tail(fifo) \
-	k_queue_peek_tail((struct k_queue *) fifo)
+	k_queue_peek_tail(&(fifo)->_queue)
 
 /**
  * @brief Statically define and initialize a FIFO queue.
@@ -2266,8 +2262,7 @@ struct k_fifo {
  * @req K-FIFO-002
  */
 #define K_FIFO_DEFINE(name) \
-	struct k_fifo name \
-		__in_section(_k_queue, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_fifo, name) = \
 		Z_FIFO_INITIALIZER(name)
 
 /** @} */
@@ -2308,7 +2303,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_init(lifo) \
-	k_queue_init((struct k_queue *) lifo)
+	k_queue_init(&(lifo)->_queue)
 
 /**
  * @brief Add an element to a LIFO queue.
@@ -2326,7 +2321,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_put(lifo, data) \
-	k_queue_prepend((struct k_queue *) lifo, data)
+	k_queue_prepend(&(lifo)->_queue, data)
 
 /**
  * @brief Add an element to a LIFO queue.
@@ -2346,7 +2341,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_alloc_put(lifo, data) \
-	k_queue_alloc_prepend((struct k_queue *) lifo, data)
+	k_queue_alloc_prepend(&(lifo)->_queue, data)
 
 /**
  * @brief Get an element from a LIFO queue.
@@ -2365,7 +2360,7 @@ struct k_lifo {
  * @req K-LIFO-001
  */
 #define k_lifo_get(lifo, timeout) \
-	k_queue_get((struct k_queue *) lifo, timeout)
+	k_queue_get(&(lifo)->_queue, timeout)
 
 /**
  * @brief Statically define and initialize a LIFO queue.
@@ -2378,8 +2373,7 @@ struct k_lifo {
  * @req K-LIFO-002
  */
 #define K_LIFO_DEFINE(name) \
-	struct k_lifo name \
-		__in_section(_k_queue, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_lifo, name) = \
 		_K_LIFO_INITIALIZER(name)
 
 /** @} */
@@ -2514,8 +2508,7 @@ __syscall int k_stack_pop(struct k_stack *stack, u32_t *data, s32_t timeout);
 #define K_STACK_DEFINE(name, stack_num_entries)                \
 	u32_t __noinit                                      \
 		_k_stack_buf_##name[stack_num_entries];        \
-	struct k_stack name                                    \
-		__in_section(_k_stack, static, name) =    \
+	Z_STRUCT_SECTION_ITERABLE(k_stack, name) = \
 		_K_STACK_INITIALIZER(name, _k_stack_buf_##name, \
 				    stack_num_entries)
 
@@ -2949,8 +2942,7 @@ struct k_mutex {
  * @req K-MUTEX-001
  */
 #define K_MUTEX_DEFINE(name) \
-	struct k_mutex name \
-		__in_section(_k_mutex, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_mutex, name) = \
 		_K_MUTEX_INITIALIZER(name)
 
 /**
@@ -3150,8 +3142,7 @@ static inline unsigned int z_impl_k_sem_count_get(struct k_sem *sem)
  * @req K-SEM-002
  */
 #define K_SEM_DEFINE(name, initial_count, count_limit) \
-	struct k_sem name \
-		__in_section(_k_sem, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_sem, name) = \
 		Z_SEM_INITIALIZER(name, initial_count, count_limit); \
 	BUILD_ASSERT(((count_limit) != 0) && \
 		     ((initial_count) <= (count_limit)));
@@ -3237,12 +3228,11 @@ struct k_msgq_attrs {
  *
  * @req K-MSGQ-001
  */
-#define K_MSGQ_DEFINE(q_name, q_msg_size, q_max_msgs, q_align)      \
-	static char __noinit __aligned(q_align)              \
-		_k_fifo_buf_##q_name[(q_max_msgs) * (q_msg_size)];  \
-	struct k_msgq q_name                                        \
-		__in_section(_k_msgq, static, q_name) =        \
-	       _K_MSGQ_INITIALIZER(q_name, _k_fifo_buf_##q_name,     \
+#define K_MSGQ_DEFINE(q_name, q_msg_size, q_max_msgs, q_align)		\
+	static char __noinit __aligned(q_align)				\
+		_k_fifo_buf_##q_name[(q_max_msgs) * (q_msg_size)];	\
+	Z_STRUCT_SECTION_ITERABLE(k_msgq, q_name) =			\
+	       _K_MSGQ_INITIALIZER(q_name, _k_fifo_buf_##q_name,	\
 				  q_msg_size, q_max_msgs)
 
 /**
@@ -3504,8 +3494,7 @@ struct k_mbox {
  * @req K-MBOX-001
  */
 #define K_MBOX_DEFINE(name) \
-	struct k_mbox name \
-		__in_section(_k_mbox, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_mbox, name) = \
 		_K_MBOX_INITIALIZER(name) \
 
 /**
@@ -3707,8 +3696,7 @@ struct k_pipe {
 #define K_PIPE_DEFINE(name, pipe_buffer_size, pipe_align)		\
 	static unsigned char __noinit __aligned(pipe_align)	\
 		_k_pipe_buf_##name[pipe_buffer_size];			\
-	struct k_pipe name						\
-		__in_section(_k_pipe, static, name) =			\
+	Z_STRUCT_SECTION_ITERABLE(k_pipe, name) = \
 		_K_PIPE_INITIALIZER(name, _k_pipe_buf_##name, pipe_buffer_size)
 
 /**
@@ -3888,8 +3876,7 @@ struct k_mem_slab {
 #define K_MEM_SLAB_DEFINE(name, slab_block_size, slab_num_blocks, slab_align) \
 	char __noinit __aligned(slab_align) \
 		_k_mem_slab_buf_##name[(slab_num_blocks) * (slab_block_size)]; \
-	struct k_mem_slab name \
-		__in_section(_k_mem_slab, static, name) = \
+	Z_STRUCT_SECTION_ITERABLE(k_mem_slab, name) = \
 		_K_MEM_SLAB_INITIALIZER(name, _k_mem_slab_buf_##name, \
 				      slab_block_size, slab_num_blocks)
 
@@ -4025,7 +4012,7 @@ struct k_mem_pool {
 	char __aligned(align) _mpool_buf_##name[_ALIGN4(maxsz * nmax)	\
 				  + _MPOOL_BITS_SIZE(maxsz, minsz, nmax)]; \
 	struct sys_mem_pool_lvl _mpool_lvls_##name[Z_MPOOL_LVLS(maxsz, minsz)]; \
-	struct k_mem_pool name __in_section(_k_mem_pool, static, name) = { \
+	Z_STRUCT_SECTION_ITERABLE(k_mem_pool, name) = { \
 		.base = {						\
 			.buf = _mpool_buf_##name,			\
 			.max_sz = maxsz,				\
@@ -4522,7 +4509,7 @@ extern void z_sys_power_save_idle_exit(s32_t ticks);
 #define z_except_reason(reason) do { \
 		printk("@ %s:%d:\n", __FILE__,  __LINE__); \
 		z_NanoFatalErrorHandler(reason, &_default_esf); \
-		CODE_UNREACHABLE; \
+		k_thread_abort(k_current_get()); \
 	} while (false)
 
 #endif /* _ARCH__EXCEPT */
@@ -4743,17 +4730,17 @@ static inline char *Z_THREAD_STACK_BUFFER(k_thread_stack_t *sym)
 #define K_MEM_PARTITION_DEFINE(name, start, size, attr) \
 	_ARCH_MEM_PARTITION_ALIGN_CHECK(start, size); \
 	struct k_mem_partition name =\
-		{ (u32_t)start, size, attr}
+		{ (uintptr_t)start, size, attr}
 #else
 #define K_MEM_PARTITION_DEFINE(name, start, size, attr) \
 	struct k_mem_partition name =\
-		{ (u32_t)start, size, attr}
+		{ (uintptr_t)start, size, attr}
 #endif /* _ARCH_MEM_PARTITION_ALIGN_CHECK */
 
 /* memory partition */
 struct k_mem_partition {
 	/* start address of memory partition */
-	u32_t start;
+	uintptr_t start;
 	/* size of memory partition */
 	u32_t size;
 #if defined(CONFIG_MEMORY_PROTECTION)
