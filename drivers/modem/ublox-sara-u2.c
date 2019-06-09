@@ -1427,11 +1427,13 @@ restart:
 	}
 
 	/* enable power saving */
-	ret = send_at_cmd(NULL, "AT+UPSV=1,50", MDM_CMD_TIMEOUT);
+/*
+	ret = send_at_cmd(NULL, "AT+UPSV=1,500", MDM_CMD_TIMEOUT);
 	if (ret < 0) {
 		LOG_ERR("AT+UPSV=1 ret:%d", ret);
 		goto error;
 	}
+*/
 
 	/* UNC messages for registration */
 	ret = send_at_cmd(NULL, "AT+CREG=1", MDM_CMD_TIMEOUT);
@@ -2031,11 +2033,11 @@ static int api_sleep(struct device *dev, enum modem_sleep_mode sleep_mode)
 	struct modem_iface_ctx *ctx = dev->driver_data;
 	struct modem_pwr_state pwr_state = {0};
 	int ret = 0;
-/*
- * 2b 55 44 43 4f 4e 46 3a |+UDCONF:
-20 34 30 2c 32 2c 32    | 40,2,2
- */
-//	send_at_cmd(NULL, "AT+UDCONF=40,2,2", MDM_CMD_TIMEOUT);
+
+
+	ret = send_at_cmd(NULL, "AT+UPSV=1", MDM_CMD_TIMEOUT);
+
+
 	switch (sleep_mode)
 	{
 		case MODEM_SLEEP_OFF:
