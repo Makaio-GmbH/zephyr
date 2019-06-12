@@ -214,6 +214,7 @@ int mdm_receiver_wake(struct mdm_receiver_context *ctx)
 #endif
 	uart_irq_rx_enable(ctx->uart_dev);
 
+	mdm_receiver_flush(ctx);
 	return 0;
 }
 
