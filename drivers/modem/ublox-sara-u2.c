@@ -5,7 +5,7 @@
  */
 
 #define LOG_DOMAIN modem_ublox_sara_u2
-#define LOG_LEVEL 4
+#define LOG_LEVEL CONFIG_MODEM_LOG_LEVEL
 #include <logging/log.h>
 LOG_MODULE_REGISTER(LOG_DOMAIN);
 
