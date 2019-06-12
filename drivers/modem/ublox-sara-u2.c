@@ -5,7 +5,7 @@
  */
 
 #define LOG_DOMAIN modem_ublox_sara_u2
-#define LOG_LEVEL CONFIG_MODEM_LOG_LEVEL
+#define LOG_LEVEL 4
 #include <logging/log.h>
 LOG_MODULE_REGISTER(LOG_DOMAIN);
 
@@ -42,6 +42,13 @@ LOG_MODULE_REGISTER(LOG_DOMAIN);
 #define CONFIG_MODEM_UBLOX_SARA_U2_MANUAL_MCCMNO ""
 #endif
 
+#if !defined(CONFIG_MODEM_UBLOX_SARA_G450) && defined(CONFIG_USE_SARA_G450)
+#define CONFIG_MODEM_UBLOX_SARA_G450 1
+#endif
+
+#define UBLOX_SLEEP_CMD "AT+UPSV=1,50"
+#define UBLOX_WAKE_CMD "AT+UPSV=0"
+
 /* Uncomment the #define below to enable a hexdump of all incoming
  * data from the modem receiver
  */
@@ -62,7 +69,9 @@ enum mdm_control_pins {
 	MDM_POWER = 0,
 	MDM_RESET,
 	MDM_VINT,
+#ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
 	MDM_TTLBUFF_EN,
+#endif
 	MAX_MDM_CONTROL_PINS,
 };
 
@@ -208,6 +217,11 @@ struct modem_iface_ctx {
 
 	/* callback for incoming uart data */
 	modem_api_resp_cb resp_cb;
+
+	struct device *gpio_cts_ctrl;
+	int gpio_cts_pin;
+	struct device *gpio_rts_ctrl;
+	int gpio_rts_pin;
 };
 
 struct cmd_handler {
@@ -388,8 +402,12 @@ static int send_data(struct modem_socket *sock,
 			}
 		}
 		frag = frag->frags;
-		k_sleep(100);
+		if(frag)
+		{
+			k_sleep(100);
+		}
 	}
+
 	k_sem_reset(&sock->sock_send_sem);
 	ret = k_sem_take(&sock->sock_send_sem, MDM_CMD_SEND_TIMEOUT);
 	if (ret == 0) {
@@ -669,7 +687,7 @@ static void on_cmd_atcmdinfo_ops(struct net_buf **buf, u16_t len)
 		return;
 	}
 
-	LOG_WRN("Bad format found for network operator");
+	LOG_WRN("Bad format found for network operator: %s", log_strdup(value));
 }
 
 /* Handler: +CSQ: <signal_power>[0],<qual>[1] */
@@ -680,12 +698,20 @@ static void on_cmd_atcmdinfo_rssi(struct net_buf **buf, u16_t len)
 	char value[12];
 
 	value_size = sizeof(value);
-	while (*buf && len > 0 && param_count < 2) {
+
+#ifdef CONFIG_MODEM_UBLOX_SARA_G450
+	const int relevant_param = 1;
+#else
+	const int relevant_param = 2;
+#endif
+
+	while (*buf && len > 0 && param_count < relevant_param) {
 		i = 0;
 		(void)memset(value, 0, value_size);
 
 		while (*buf && len > 0 && i < value_size) {
 			value[i] = net_buf_pull_u8(*buf);
+
 			len--;
 			if (!(*buf)->len) {
 				*buf = net_buf_frag_del(NULL, *buf);
@@ -708,7 +734,7 @@ static void on_cmd_atcmdinfo_rssi(struct net_buf **buf, u16_t len)
 		param_count++;
 	}
 
-	if (param_count == 2 && i > 0) {
+	if (param_count == relevant_param && i > 0) {
 		rssi = atoi(value);
 		if (rssi >= 0 && rssi <= 97) {
 			/* FIXME: I guess this is not correct */
@@ -717,7 +743,6 @@ static void on_cmd_atcmdinfo_rssi(struct net_buf **buf, u16_t len)
 			ictx.mdm_ctx.data_rssi = -1000;
 		}
 
-		LOG_INF("RSSI: %d", ictx.mdm_ctx.data_rssi);
 		return;
 	}
 
@@ -1222,6 +1247,8 @@ static void modem_rx(void)
 				break;
 			}
 
+			LOG_HEXDUMP_DBG(rx_buf->data, len, "IN");
+
 			if(ictx.resp_cb)
 			{
 				ictx.resp_cb(NULL, rx_buf->data, len);
@@ -1324,14 +1351,17 @@ static int modem_pin_init(void)
 
 
 
-
+	LOG_ERR("1st VINT: %d", powered_on_val);
 	if(!powered_on_val)
 	{
 		gpio_pin_write(ictx.gpio_port_dev[MDM_POWER],
 					   pinconfig[MDM_POWER].pin, MDM_POWER_ENABLE);
 
+#ifdef CONFIG_MODEM_UBLOX_SARA_G450
+		k_sleep(1000);
+#else
 		k_sleep(100);
-
+#endif
 		gpio_pin_write(ictx.gpio_port_dev[MDM_POWER],
 					   pinconfig[MDM_POWER].pin, MDM_POWER_DISABLE);
 	}
@@ -1398,13 +1428,26 @@ restart:
 	 * Also wait for CSPS=1 or RRCSTATE=1 notification
 	 */
 	ret = -1;
+
+	/* this fix seems to be required for G450 to wake up */
+#ifdef CONFIG_MODEM_UBLOX_SARA_G450
+
+	for(u8_t i = 0; i < 3; i++)
+	{
+		mdm_receiver_send(&ictx.mdm_ctx, UBLOX_WAKE_CMD"\r\n", ARRAY_SIZE(UBLOX_WAKE_CMD) + 2);
+		k_sleep(100);
+	}
+#endif
+
 	while (counter++ < 50 && ret < 0) {
 
 		ret = send_at_cmd(NULL, "AT", MDM_CMD_TIMEOUT);
 		if (ret < 0 && ret != -ETIMEDOUT) {
 			break;
 		}
-		k_sleep(K_SECONDS(2));
+		k_sleep(K_MSEC(200));
+
+
 	}
 
 	if (ret < 0) {
@@ -1427,13 +1470,13 @@ restart:
 	}
 
 	/* enable power saving */
-/*
-	ret = send_at_cmd(NULL, "AT+UPSV=1,500", MDM_CMD_TIMEOUT);
+#ifndef CONFIG_MODEM_UBLOX_SARA_G450
+	ret = send_at_cmd(NULL, UBLOX_SLEEP_CMD, MDM_CMD_TIMEOUT);
 	if (ret < 0) {
 		LOG_ERR("AT+UPSV=1 ret:%d", ret);
 		goto error;
 	}
-*/
+#endif
 
 	/* UNC messages for registration */
 	ret = send_at_cmd(NULL, "AT+CREG=1", MDM_CMD_TIMEOUT);
@@ -1509,6 +1552,16 @@ restart:
 	k_sleep(MDM_CMD_TIMEOUT);
 #endif
 
+	/* set URAT to GSM/GPRS */
+	/*
+	ret = send_at_cmd(NULL, "AT+URAT=1,2",
+			MDM_CMD_TIMEOUT);
+	if (ret < 0) {
+		LOG_ERR("AT+URAT ret:%d", ret);
+		goto error;
+	}
+*/
+
 
 
 	/* setup PDP context definition */
@@ -1531,7 +1584,7 @@ restart:
 		/* use manual MCC/MNO entry */
 		ret = send_at_cmd(NULL, "AT+COPS=1,2,\""
 				  CONFIG_MODEM_UBLOX_SARA_U2_MANUAL_MCCMNO "\"",
-				  MDM_CMD_TIMEOUT);
+						  MDM_REGISTRATION_TIMEOUT);
 	} else {
 		/* register operator automatically */
 		ret = send_at_cmd(NULL, "AT+COPS=0,0", MDM_REGISTRATION_TIMEOUT);
@@ -1580,6 +1633,10 @@ query_rssi:
 		goto restart;
 	}
 
+#ifdef CONFIG_MODEM_UBLOX_SARA_G450
+	send_at_cmd(NULL, "AT+CGATT=1", MDM_REGISTRATION_TIMEOUT);
+#endif
+
 	LOG_INF("Network is ready.");
 
 	/* Set iface up */
@@ -1594,6 +1651,7 @@ static int modem_init(struct device *dev)
 	int i, ret = 0;
 
 	ARG_UNUSED(dev);
+
 
 	/* check for valid pinconfig */
 	__ASSERT(ARRAY_SIZE(pinconfig) == MAX_MDM_CONTROL_PINS,
@@ -1627,6 +1685,7 @@ static int modem_init(struct device *dev)
 		}
 	}
 
+
 	/* Set modem data storage */
 	ictx.mdm_ctx.data_manufacturer = ictx.mdm_manufacturer;
 	ictx.mdm_ctx.data_model = ictx.mdm_model;
@@ -1650,6 +1709,51 @@ static int modem_init(struct device *dev)
 	k_delayed_work_init(&ictx.rssi_query_work, modem_rssi_query_work);
 
 	modem_reset();
+
+	if(strcmp(DT_UBLOX_SARA_U2_0_BUS_NAME, "UART_0") == 0)
+	{
+#ifdef DT_NORDIC_NRF_UARTE_0_CTS_PIN
+		if(DT_NORDIC_NRF_UARTE_0_CTS_PIN > 32)
+		{
+			ictx.gpio_cts_ctrl = device_get_binding("GPIO_1");
+			ictx.gpio_cts_pin = DT_NORDIC_NRF_UARTE_0_CTS_PIN - 32;
+		} else {
+			ictx.gpio_cts_ctrl = device_get_binding("GPIO_0");
+			ictx.gpio_cts_pin = DT_NORDIC_NRF_UARTE_0_CTS_PIN;
+		}
+#endif
+#ifdef DT_NORDIC_NRF_UARTE_0_RTS_PIN
+		if(DT_NORDIC_NRF_UARTE_0_RTS_PIN > 32)
+		{
+			ictx.gpio_rts_ctrl = device_get_binding("GPIO_1");
+			ictx.gpio_rts_pin = DT_NORDIC_NRF_UARTE_0_RTS_PIN - 32;
+		} else {
+			ictx.gpio_rts_ctrl = device_get_binding("GPIO_0");
+			ictx.gpio_rts_pin = DT_NORDIC_NRF_UARTE_0_RTS_PIN;
+		}
+#endif
+	} else if(strcmp(DT_UBLOX_SARA_U2_0_BUS_NAME, "UART_1") == 0) {
+#ifdef DT_NORDIC_NRF_UARTE_1_CTS_PIN
+		if(DT_NORDIC_NRF_UARTE_1_CTS_PIN > 32)
+		{
+			ictx.gpio_cts_ctrl = device_get_binding("GPIO_1");
+			ictx.gpio_cts_pin = DT_NORDIC_NRF_UARTE_1_CTS_PIN - 32;
+		} else {
+			ictx.gpio_cts_ctrl = device_get_binding("GPIO_0");
+			ictx.gpio_cts_pin = DT_NORDIC_NRF_UARTE_1_CTS_PIN;
+		}
+#endif
+#ifdef DT_NORDIC_NRF_UARTE_1_RTS_PIN
+		if(DT_NORDIC_NRF_UARTE_1_RTS_PIN > 32)
+		{
+			ictx.gpio_rts_ctrl = device_get_binding("GPIO_1");
+			ictx.gpio_rts_pin = DT_NORDIC_NRF_UARTE_1_RTS_PIN - 32;
+		} else {
+			ictx.gpio_rts_ctrl = device_get_binding("GPIO_0");
+			ictx.gpio_rts_pin = DT_NORDIC_NRF_UARTE_1_RTS_PIN;
+		}
+#endif
+	}
 
 error:
 	return ret;
@@ -1698,7 +1802,8 @@ static int offload_get(sa_family_t family,
 	if (ret < 0) {
 		LOG_ERR("%s ret:%d", buf_upsda, ret);
 	}
-
+/* FIXME handler for UUPSDA: */
+k_sleep(1000);
 	local_port = ntohs(net_sin((struct sockaddr *)&(*context)->local)->sin_port);
 	if (local_port > 0) {
 		snprintk(buf, sizeof(buf), "AT+USOCR=%d,%d", ip_proto,
@@ -1972,6 +2077,7 @@ static int offload_put(struct net_context *context)
 		LOG_ERR("%s ret:%d", log_strdup(buf_upsda), ret);
 	}
 
+	/* FIXME handler for UUPSDA: */
 	k_sleep(1000);
 
 	snprintk(buf, sizeof(buf), "AT+USOCL=%d", sock->socket_id);
@@ -2035,8 +2141,11 @@ static int api_sleep(struct device *dev, enum modem_sleep_mode sleep_mode)
 	int ret = 0;
 
 
-	ret = send_at_cmd(NULL, "AT+UPSV=1", MDM_CMD_TIMEOUT);
 
+	ret = mdm_receiver_send(&ctx->mdm_ctx, UBLOX_SLEEP_CMD"\r\n", ARRAY_SIZE(UBLOX_SLEEP_CMD) + 2);
+	if (ret < 0) {
+		LOG_ERR("AT+UPSV ret:%d", ret);
+	}
 
 	switch (sleep_mode)
 	{
@@ -2050,6 +2159,16 @@ static int api_sleep(struct device *dev, enum modem_sleep_mode sleep_mode)
 			LOG_DBG("Disable interrupt");
 			mdm_receiver_sleep(&ctx->mdm_ctx);
 			pwr_state.uart_disabled = true;
+
+			if(ictx.gpio_cts_ctrl)
+			{
+				gpio_pin_configure(ictx.gpio_cts_ctrl, ictx.gpio_cts_pin, GPIO_DIR_IN);
+			}
+			if(ictx.gpio_rts_ctrl)
+			{
+				gpio_pin_configure(ictx.gpio_rts_ctrl, ictx.gpio_rts_pin, GPIO_DIR_IN);
+			}
+
 		case MODEM_SLEEP_CONNECTED:
 
 #ifdef DT_UBLOX_SARA_U2_0_MDM_TTLBUFF_GPIOS_CONTROLLER
@@ -2085,15 +2204,26 @@ static int api_wake(struct device *dev)
 		LOG_DBG("Enable ttl buffer");
 	gpio_pin_write(ictx.gpio_port_dev[MDM_TTLBUFF_EN],
 				   pinconfig[MDM_TTLBUFF_EN].pin, MDM_TTLBUFF_ENABLE);
-		k_busy_wait(1000);
+		k_sleep(200);
 		pwr_state->ttlbuff_disabled = false;
 	}
 #endif
 
 	if(pwr_state->uart_disabled)
 	{
+
 		mdm_receiver_wake(&ctx->mdm_ctx);
-		k_busy_wait(1000);
+		k_sleep(50);
+		pwr_state->uart_disabled = false;
+
+		/* wake up fix required for G450 */
+#ifdef CONFIG_MODEM_UBLOX_SARA_G450
+		for(u8_t i = 0; i < 3; i++)
+		{
+			mdm_receiver_send(&ctx->mdm_ctx, UBLOX_WAKE_CMD"\r\n", ARRAY_SIZE(UBLOX_WAKE_CMD) + 2);
+			k_sleep(50);
+		}
+#endif
 		pwr_state->uart_disabled = false;
 	}
 
