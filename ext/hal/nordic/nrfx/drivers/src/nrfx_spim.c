@@ -460,6 +460,7 @@ static nrfx_err_t spim_xfer(NRF_SPIM_Type               * p_spim,
                             nrfx_spim_xfer_desc_t const * p_xfer_desc,
                             uint32_t                      flags)
 {
+
     nrfx_err_t err_code;
     // EasyDMA requires that transfer buffers are placed in Data RAM region;
     // signal error if they are not.
@@ -492,11 +493,12 @@ static nrfx_err_t spim_xfer(NRF_SPIM_Type               * p_spim,
     nrf_spim_event_clear(p_spim, NRF_SPIM_EVENT_END);
 
     spim_list_enable_handle(p_spim, flags);
-
+/* FIXME */
     if (!(flags & NRFX_SPIM_FLAG_HOLD_XFER))
     {
         nrf_spim_task_trigger(p_spim, NRF_SPIM_TASK_START);
     }
+/* END FIXME */
 #if NRFX_CHECK(NRFX_SPIM_NRF52_ANOMALY_109_WORKAROUND_ENABLED)
     if (flags & NRFX_SPIM_FLAG_HOLD_XFER)
     {
@@ -522,6 +524,7 @@ static nrfx_err_t spim_xfer(NRF_SPIM_Type               * p_spim,
         if (p_cb->ss_pin != NRFX_SPIM_PIN_NOT_USED)
         {
 #if NRFX_CHECK(NRFX_SPIM_EXTENDED_ENABLED)
+#error NRFX_SPIM_EXTENDED_ENABLED
             if (!p_cb->use_hw_ss)
 #endif
             {
@@ -540,6 +543,7 @@ static nrfx_err_t spim_xfer(NRF_SPIM_Type               * p_spim,
     {
         spim_int_enable(p_spim, !(flags & NRFX_SPIM_FLAG_NO_XFER_EVT_HANDLER));
     }
+
     err_code = NRFX_SUCCESS;
     NRFX_LOG_INFO("Function: %s, error code: %s.", __func__, NRFX_LOG_ERROR_STRING_GET(err_code));
     return err_code;

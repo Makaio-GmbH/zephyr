@@ -168,6 +168,7 @@ static void transfer_next_chunk(struct device *dev)
 			tx_buf = dev_data->buffer;
 		}
 #endif
+
 		if (chunk_len > dev_config->max_chunk_len) {
 			chunk_len = dev_config->max_chunk_len;
 		}
@@ -178,12 +179,13 @@ static void transfer_next_chunk(struct device *dev)
 		xfer.tx_length   = spi_context_tx_buf_on(ctx) ? chunk_len : 0;
 		xfer.p_rx_buffer = ctx->rx_buf;
 		xfer.rx_length   = spi_context_rx_buf_on(ctx) ? chunk_len : 0;
+
 		result = nrfx_spim_xfer(&dev_config->spim, &xfer, 0);
-		if (result == NRFX_SUCCESS) {
-			return;
+		if (result != NRFX_SUCCESS) {
+			error = -EIO;
 		}
 
-		error = -EIO;
+
 	}
 
 	spi_context_cs_control(ctx, false);
@@ -203,10 +205,12 @@ static int transceive(struct device *dev,
 	int error;
 
 	error = configure(dev, spi_cfg);
+
 	if (error == 0) {
 		dev_data->busy = true;
 
 		spi_context_buffers_setup(&dev_data->ctx, tx_bufs, rx_bufs, 1);
+
 		spi_context_cs_control(&dev_data->ctx, true);
 
 		transfer_next_chunk(dev);
@@ -258,12 +262,21 @@ static int spi_nrfx_release(struct device *dev,
 	return 0;
 }
 
+static int spi_nrfx_sleep(struct device *dev,
+						  const struct spi_config *spi_cfg)
+{
+	spi_nrfx_release(dev, spi_cfg);
+	nrfx_spim_uninit(&get_dev_config(dev)->spim);
+
+	return 0;
+}
 static const struct spi_driver_api spi_nrfx_driver_api = {
 	.transceive = spi_nrfx_transceive,
 #ifdef CONFIG_SPI_ASYNC
 	.transceive_async = spi_nrfx_transceive_async,
 #endif
 	.release = spi_nrfx_release,
+	.sleep = spi_nrfx_sleep
 };
 
 

@@ -218,6 +218,8 @@ typedef int (*spi_api_io_async)(struct device *dev,
 typedef int (*spi_api_release)(struct device *dev,
 			       const struct spi_config *config);
 
+typedef int (*spi_api_sleep)(struct device *dev,
+							   const struct spi_config *config);
 
 /**
  * @brief SPI driver API
@@ -229,6 +231,7 @@ struct spi_driver_api {
 	spi_api_io_async transceive_async;
 #endif /* CONFIG_SPI_ASYNC */
 	spi_api_release release;
+	spi_api_sleep sleep;
 };
 
 /**
