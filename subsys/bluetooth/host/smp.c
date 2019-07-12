@@ -14,10 +14,10 @@
 #include <stddef.h>
 #include <errno.h>
 #include <string.h>
-#include <atomic.h>
-#include <misc/util.h>
-#include <misc/byteorder.h>
-#include <misc/stack.h>
+#include <sys/atomic.h>
+#include <sys/util.h>
+#include <sys/byteorder.h>
+#include <debug/stack.h>
 
 #include <net/buf.h>
 #include <bluetooth/hci.h>
@@ -261,8 +261,7 @@ static struct bt_smp bt_smp_pool[CONFIG_BT_MAX_CONN];
 static bool bondable = IS_ENABLED(CONFIG_BT_BONDABLE);
 static bool oobd_present;
 static bool sc_supported;
-static bool sc_local_pkey_valid;
-static u8_t sc_public_key[64];
+static const u8_t *sc_public_key;
 static K_SEM_DEFINE(sc_local_pkey_ready, 0, 1);
 
 static u8_t get_io_capa(void)
@@ -2292,6 +2291,8 @@ static int smp_init(struct bt_smp *smp)
 
 	atomic_set_bit(&smp->allowed_cmds, BT_SMP_CMD_PAIRING_FAIL);
 
+	sc_public_key = bt_pub_key_get();
+
 	return 0;
 }
 
@@ -2305,7 +2306,7 @@ void bt_set_oob_data_flag(bool enable)
 	oobd_present = enable;
 }
 
-static u8_t get_auth(u8_t auth)
+static u8_t get_auth(struct bt_conn *conn, u8_t auth)
 {
 	if (sc_supported) {
 		auth &= BT_SMP_AUTH_MASK_SC;
@@ -2313,7 +2314,9 @@ static u8_t get_auth(u8_t auth)
 		auth &= BT_SMP_AUTH_MASK;
 	}
 
-	if (get_io_capa() == BT_SMP_IO_NO_INPUT_OUTPUT) {
+	if ((get_io_capa() == BT_SMP_IO_NO_INPUT_OUTPUT) ||
+	    (!IS_ENABLED(CONFIG_BT_SMP_ENFORCE_MITM) &&
+	    (conn->required_sec_level < BT_SECURITY_HIGH))) {
 		auth &= ~(BT_SMP_AUTH_MITM);
 	} else {
 		auth |= BT_SMP_AUTH_MITM;
@@ -2396,7 +2399,7 @@ int bt_smp_send_security_req(struct bt_conn *conn)
 	}
 
 	req = net_buf_add(req_buf, sizeof(*req));
-	req->auth_req = get_auth(BT_SMP_AUTH_DEFAULT);
+	req->auth_req = get_auth(conn, BT_SMP_AUTH_DEFAULT);
 
 	/* SMP timer is not restarted for SecRequest so don't use smp_send */
 	bt_l2cap_send(conn, BT_L2CAP_CID_SMP, req_buf);
@@ -2439,7 +2442,7 @@ static u8_t smp_pairing_req(struct bt_smp *smp, struct net_buf *buf)
 	smp->prsp[0] = BT_SMP_CMD_PAIRING_RSP;
 	rsp = (struct bt_smp_pairing *)&smp->prsp[1];
 
-	rsp->auth_req = get_auth(req->auth_req);
+	rsp->auth_req = get_auth(conn, req->auth_req);
 	rsp->io_capability = get_io_capa();
 	rsp->oob_flag = oobd_present ? BT_SMP_OOB_PRESENT :
 				       BT_SMP_OOB_NOT_PRESENT;
@@ -2575,7 +2578,7 @@ int bt_smp_send_pairing_req(struct bt_conn *conn)
 
 	req = net_buf_add(req_buf, sizeof(*req));
 
-	req->auth_req = get_auth(BT_SMP_AUTH_DEFAULT);
+	req->auth_req = get_auth(conn, BT_SMP_AUTH_DEFAULT);
 	req->io_capability = get_io_capa();
 	req->oob_flag = oobd_present ? BT_SMP_OOB_PRESENT :
 				       BT_SMP_OOB_NOT_PRESENT;
@@ -2666,7 +2669,7 @@ static u8_t smp_pairing_rsp(struct bt_smp *smp, struct net_buf *buf)
 		return 0;
 	}
 
-	if (!sc_local_pkey_valid) {
+	if (!sc_public_key) {
 		atomic_set_bit(smp->flags, SMP_FLAG_PKEY_SEND);
 		return 0;
 	}
@@ -3510,7 +3513,7 @@ static u8_t smp_public_key(struct bt_smp *smp, struct net_buf *buf)
 	}
 
 #if defined(CONFIG_BT_PERIPHERAL)
-	if (!sc_local_pkey_valid) {
+	if (!sc_public_key) {
 		atomic_set_bit(smp->flags, SMP_FLAG_PKEY_SEND);
 		return 0;
 	}
@@ -3678,14 +3681,13 @@ static void bt_smp_pkey_ready(const u8_t *pkey)
 
 	BT_DBG("");
 
+	sc_public_key = pkey;
+
 	if (!pkey) {
 		BT_WARN("Public key not available");
-		sc_local_pkey_valid = false;
 		return;
 	}
 
-	memcpy(sc_public_key, pkey, 64);
-	sc_local_pkey_valid = true;
 	k_sem_give(&sc_local_pkey_ready);
 
 	for (i = 0; i < ARRAY_SIZE(bt_smp_pool); i++) {
@@ -4453,7 +4455,7 @@ int bt_smp_le_oob_generate_sc_data(struct bt_le_oob_sc_data *le_sc_oob)
 {
 	int err;
 
-	if (!sc_local_pkey_valid) {
+	if (!sc_public_key) {
 		err = k_sem_take(&sc_local_pkey_ready, K_FOREVER);
 		if (err) {
 			return err;
@@ -4631,7 +4633,7 @@ int bt_smp_auth_pairing_confirm(struct bt_conn *conn)
 			return legacy_send_pairing_confirm(smp);
 		}
 
-		if (!sc_local_pkey_valid) {
+		if (!sc_public_key) {
 			atomic_set_bit(smp->flags, SMP_FLAG_PKEY_SEND);
 			return 0;
 		}
