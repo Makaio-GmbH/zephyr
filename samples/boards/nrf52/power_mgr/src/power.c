@@ -20,8 +20,8 @@ void sys_pm_notify_power_state_entry(enum power_states state)
 		 * This power state is implemented by this sample.
 		 * Perform enter to the low power state by turning off LED2.
 		 */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		//gpio_pin_write(gpio_port, LED_1, LED_ON);
+		//gpio_pin_write(gpio_port, LED_2, LED_OFF);
 		k_cpu_idle();
 		break;
 
@@ -32,8 +32,8 @@ void sys_pm_notify_power_state_entry(enum power_states state)
 		 * This power state is implemented by this sample.
 		 * Perform enter to the low power state by turning off LEDs.
 		 */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		//gpio_pin_write(gpio_port, LED_1, LED_ON);
+		//gpio_pin_write(gpio_port, LED_2, LED_OFF);
 		k_cpu_idle();
 		break;
 
@@ -45,8 +45,8 @@ void sys_pm_notify_power_state_entry(enum power_states state)
 		 * handled by SoC-specific code. Here we just turn off the LEDs
 		 * to save power.
 		 */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		//gpio_pin_write(gpio_port, LED_1, LED_ON);
+		//gpio_pin_write(gpio_port, LED_2, LED_OFF);
 
 		/* Nothing else to do */
 		break;
@@ -68,24 +68,24 @@ void sys_pm_notify_power_state_exit(enum power_states state)
 		printk("--> Exited from SYS_POWER_STATE_SLEEP_2 state.\n");
 
 		/* Perform exit from the low power state by turning on LEDs */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		//gpio_pin_write(gpio_port, LED_1, LED_ON);
+		//gpio_pin_write(gpio_port, LED_2, LED_OFF);
 		break;
 
 	case SYS_POWER_STATE_SLEEP_3:
 		printk("--> Exited from SYS_POWER_STATE_SLEEP_3 state.\n");
 
 		/* Perform exit from the low power state by turning on LEDs */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		//gpio_pin_write(gpio_port, LED_1, LED_ON);
+		//gpio_pin_write(gpio_port, LED_2, LED_OFF);
 		break;
 
 	case SYS_POWER_STATE_DEEP_SLEEP_1:
 		printk("--> Exited from SYS_POWER_STATE_DEEP_SLEEP_1 state.\n");
 
 		/* Turn on LEDs which were powered down before deep sleep. */
-		gpio_pin_write(gpio_port, LED_1, LED_ON);
-		gpio_pin_write(gpio_port, LED_2, LED_OFF);
+		//gpio_pin_write(gpio_port, LED_1, LED_ON);
+		//gpio_pin_write(gpio_port, LED_2, LED_OFF);
 		break;
 
 	default:

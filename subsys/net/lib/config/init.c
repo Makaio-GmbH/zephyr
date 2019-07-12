@@ -307,7 +307,10 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 
 	k_sem_init(&counter, count, UINT_MAX);
 
+
+
 	setup_ipv4(iface);
+
 
 	setup_dhcpv4(iface);
 
@@ -325,18 +328,20 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 	 * to wait multiple events, sleep smaller amounts of data.
 	 */
 	while (count--) {
+		LOG_ERR("Wait for sem");
 		if (k_sem_take(&waiter, loop)) {
+			LOG_ERR("Sem taken");
 			if (!k_sem_count_get(&counter)) {
 				break;
 			}
 		}
 	}
 
+
 	if (!count && timeout) {
 		NET_ERR("Timeout while waiting setup");
 		return -ETIMEDOUT;
 	}
-
 	return 0;
 }
 

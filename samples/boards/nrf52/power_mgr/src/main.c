@@ -48,6 +48,22 @@ void main(void)
 	gpio_pin_configure(gpio_port, LED_2, GPIO_DIR_OUT);
 	gpio_pin_write(gpio_port, LED_2, LED_ON);
 
+	struct device *gpio0_port = device_get_binding("GPIO_0");
+	struct device *gpio1_port = device_get_binding("GPIO_1");
+	gpio_pin_configure(gpio0_port, 7, GPIO_DIR_OUT);
+	gpio_pin_configure(gpio1_port, 9, GPIO_DIR_OUT);
+	gpio_pin_configure(gpio0_port, 12, GPIO_DIR_OUT);
+	gpio_pin_write(gpio0_port, 7, 1);
+	gpio_pin_write(gpio1_port, 9, 1);
+	gpio_pin_write(gpio0_port, 12, 1);
+
+
+	// super duper
+
+	//gpio_pin_configure(gpio0_port, 17, GPIO_DIR_OUT);
+	gpio_pin_configure(gpio0_port, 23, GPIO_DIR_OUT);
+	gpio_pin_write(gpio0_port, 23, 1);
+	//gpio_pin_write(gpio0_port, 17, 0);
 	/*
 	 * Start the demo.
 	 */

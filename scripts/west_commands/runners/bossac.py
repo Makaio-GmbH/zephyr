@@ -8,7 +8,7 @@ import platform
 
 from runners.core import ZephyrBinaryRunner, RunnerCaps
 
-DEFAULT_BOSSAC_PORT = '/dev/ttyACM0'
+DEFAULT_BOSSAC_PORT = '/dev/cu.usbmodem214401'
 
 
 class BossacBinaryRunner(ZephyrBinaryRunner):
@@ -37,7 +37,7 @@ class BossacBinaryRunner(ZephyrBinaryRunner):
                             help='start erase/write/read/verify operation '
                                  'at flash OFFSET; OFFSET must be aligned '
                                  ' to a flash page boundary')
-        parser.add_argument('--bossac-port', default='/dev/ttyACM0',
+        parser.add_argument('--bossac-port', default='/dev/cu.usbmodem214401',
                             help='serial port to use, default is /dev/ttyACM0')
 
     @classmethod
@@ -46,16 +46,18 @@ class BossacBinaryRunner(ZephyrBinaryRunner):
                                   port=args.bossac_port, offset=args.offset)
 
     def do_run(self, command, **kwargs):
-        if platform.system() != 'Linux':
-            msg = 'CAUTION: No flash tool for your host system found!'
-            raise NotImplementedError(msg)
+        #if platform.system() != 'Linux':
+        #    msg = 'CAUTION: No flash tool for your host system found!'
+        #    raise NotImplementedError(msg)
 
-        cmd_stty = ['stty', '-F', self.port, 'raw', 'ispeed', '1200',
-                    'ospeed', '1200', 'cs8', '-cstopb', 'ignpar', 'eol', '255',
-                    'eof', '255']
-        cmd_flash = [self.bossac, '-p', self.port, '-R', '-e', '-w', '-v',
-                     '-o', '%s' % self.offset,
-                     '-b', self.cfg.bin_file]
+        #cmd_stty = ['stty', '-F', self.port, 'raw', 'ispeed', '1200',
+        #            'ospeed', '1200', 'cs8', '-cstopb', 'ignpar', 'eol', '255',
+        #            'eof', '255']
+        #cmd_flash = [self.bossac, '-p', self.port, '-R', '-e', '-w', '-v',
+        #             '-o', '%s' % self.offset,
+        #             '-b', self.cfg.bin_file]
 
-        self.check_call(cmd_stty)
+
+        cmd_flash = [self.bossac, '-i', '-d', '--port', 'cu.usbmodem214401', '-R']
+        #self.check_call(cmd_stty)
         self.check_call(cmd_flash)
