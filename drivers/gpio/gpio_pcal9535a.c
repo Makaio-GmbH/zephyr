@@ -19,7 +19,7 @@
 
 #include "gpio_pcal9535a.h"
 
-#define LOG_LEVEL CONFIG_GPIO_LOG_LEVEL
+#define LOG_LEVEL 4
 #include <logging/log.h>
 LOG_MODULE_REGISTER(gpio_pcal9535a);
 
@@ -515,6 +515,7 @@ static int gpio_pcal9535a_init(struct device *dev)
 
 	/* Find out the device struct of the I2C master */
 	i2c_master = device_get_binding((char *)config->i2c_master_dev_name);
+
 	if (!i2c_master) {
 		return -EINVAL;
 	}

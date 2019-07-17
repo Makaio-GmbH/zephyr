@@ -163,6 +163,7 @@ static int init_twim(struct device *dev)
 }
 
 #ifdef CONFIG_DEVICE_POWER_MANAGEMENT
+
 static int twim_nrfx_pm_control(struct device *dev, u32_t ctrl_command,
 				void *context, device_pm_cb cb, void *arg)
 {
@@ -196,8 +197,8 @@ static int twim_nrfx_pm_control(struct device *dev, u32_t ctrl_command,
 			}
 		}
 	} else {
-		assert(ctrl_command == DEVICE_PM_GET_POWER_STATE);
-		*((u32_t *)context) = get_dev_data(dev)->pm_state;
+		//assert(ctrl_command == DEVICE_PM_GET_POWER_STATE);
+		//*((u32_t *)context) = get_dev_data(dev)->pm_state;
 	}
 
 	if (cb) {
