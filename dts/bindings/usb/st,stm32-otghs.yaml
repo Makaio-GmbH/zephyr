@@ -33,3 +33,6 @@ properties:
       type: array
       category: optional
       description: PHY provider specifier
+
+    clocks:
+      category: required

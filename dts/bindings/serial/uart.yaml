@@ -18,11 +18,7 @@ properties:
       description: Clock frequency information for UART operation
     current-speed:
       type: int
-      category: required
-      description: Initial baud rate setting for UART
-    clocks:
-      type: array
       category: optional
-      description: Clock gate information
+      description: Initial baud rate setting for UART
     label:
       category: required

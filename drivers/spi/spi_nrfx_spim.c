@@ -60,7 +60,7 @@ static inline nrf_spim_frequency_t get_nrf_spim_frequency(u32_t frequency)
 	} else if (frequency < 8000000) {
 		return NRF_SPIM_FREQ_4M;
 #ifdef CONFIG_SOC_NRF52840
-		} else if (frequency < 16000000) {
+	} else if (frequency < 16000000) {
 		return NRF_SPIM_FREQ_8M;
 	} else if (frequency < 32000000) {
 		return NRF_SPIM_FREQ_16M;
@@ -100,7 +100,7 @@ static inline nrf_spim_bit_order_t get_nrf_spim_bit_order(u16_t operation)
 }
 
 static int configure(struct device *dev,
-					 const struct spi_config *spi_cfg)
+		     const struct spi_config *spi_cfg)
 {
 	struct spi_context *ctx = &get_dev_data(dev)->ctx;
 	const nrfx_spim_t *spim = &get_dev_config(dev)->spim;
@@ -112,7 +112,7 @@ static int configure(struct device *dev,
 
 	if (SPI_OP_MODE_GET(spi_cfg->operation) != SPI_OP_MODE_MASTER) {
 		LOG_ERR("Slave mode is not supported on %s",
-				dev->config->name);
+			    dev->config->name);
 		return -EINVAL;
 	}
 
@@ -128,7 +128,7 @@ static int configure(struct device *dev,
 
 	if (SPI_WORD_SIZE_GET(spi_cfg->operation) != 8) {
 		LOG_ERR("Word sizes other than 8 bits"
-				" are not supported");
+			    " are not supported");
 		return -EINVAL;
 	}
 
@@ -141,10 +141,10 @@ static int configure(struct device *dev,
 	spi_context_cs_configure(ctx);
 
 	nrf_spim_configure(spim->p_reg,
-					   get_nrf_spim_mode(spi_cfg->operation),
-					   get_nrf_spim_bit_order(spi_cfg->operation));
+			   get_nrf_spim_mode(spi_cfg->operation),
+			   get_nrf_spim_bit_order(spi_cfg->operation));
 	nrf_spim_frequency_set(spim->p_reg,
-						   get_nrf_spim_frequency(spi_cfg->frequency));
+			       get_nrf_spim_frequency(spi_cfg->frequency));
 
 	return 0;
 }
@@ -186,7 +186,7 @@ static void transfer_next_chunk(struct device *dev)
 		/* This SPIM driver is only used by the NRF52832 if
 		   SOC_NRF52832_ALLOW_SPIM_DESPITE_PAN_58 is enabled */
 		if (IS_ENABLED(CONFIG_SOC_NRF52832) &&
-			(xfer.rx_length == 1 && xfer.tx_length <= 1)) {
+		   (xfer.rx_length == 1 && xfer.tx_length <= 1)) {
 			LOG_WRN("Transaction aborted since it would trigger nRF52832 PAN 58");
 			error = -EIO;
 		}
@@ -209,9 +209,9 @@ static void transfer_next_chunk(struct device *dev)
 }
 
 static int transceive(struct device *dev,
-					  const struct spi_config *spi_cfg,
-					  const struct spi_buf_set *tx_bufs,
-					  const struct spi_buf_set *rx_bufs)
+		      const struct spi_config *spi_cfg,
+		      const struct spi_buf_set *tx_bufs,
+		      const struct spi_buf_set *rx_bufs)
 {
 	struct spi_nrfx_data *dev_data = get_dev_data(dev);
 	int error;
@@ -234,9 +234,9 @@ static int transceive(struct device *dev,
 }
 
 static int spi_nrfx_transceive(struct device *dev,
-							   const struct spi_config *spi_cfg,
-							   const struct spi_buf_set *tx_bufs,
-							   const struct spi_buf_set *rx_bufs)
+			       const struct spi_config *spi_cfg,
+			       const struct spi_buf_set *tx_bufs,
+			       const struct spi_buf_set *rx_bufs)
 {
 	spi_context_lock(&get_dev_data(dev)->ctx, false, NULL);
 	return transceive(dev, spi_cfg, tx_bufs, rx_bufs);
@@ -255,7 +255,7 @@ static int spi_nrfx_transceive_async(struct device *dev,
 #endif /* CONFIG_SPI_ASYNC */
 
 static int spi_nrfx_release(struct device *dev,
-							const struct spi_config *spi_cfg)
+			    const struct spi_config *spi_cfg)
 {
 	struct spi_nrfx_data *dev_data = get_dev_data(dev);
 
@@ -273,11 +273,11 @@ static int spi_nrfx_release(struct device *dev,
 }
 
 static const struct spi_driver_api spi_nrfx_driver_api = {
-		.transceive = spi_nrfx_transceive,
+	.transceive = spi_nrfx_transceive,
 #ifdef CONFIG_SPI_ASYNC
-		.transceive_async = spi_nrfx_transceive_async,
+	.transceive_async = spi_nrfx_transceive_async,
 #endif
-		.release = spi_nrfx_release,
+	.release = spi_nrfx_release,
 };
 
 
@@ -300,12 +300,12 @@ static int init_spim(struct device *dev)
 	 * The proper ones are set in configure() when a transfer is started.
 	 */
 	nrfx_err_t result = nrfx_spim_init(&get_dev_config(dev)->spim,
-									   &get_dev_config(dev)->config,
-									   event_handler,
-									   dev);
+					   &get_dev_config(dev)->config,
+					   event_handler,
+					   dev);
 	if (result != NRFX_SUCCESS) {
 		LOG_ERR("Failed to initialize device: %s",
-				dev->config->name);
+			    dev->config->name);
 		return -EBUSY;
 	}
 
