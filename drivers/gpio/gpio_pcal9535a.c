@@ -31,7 +31,7 @@ LOG_MODULE_REGISTER(gpio_pcal9535a);
 #define REG_POL_INV_PORT0		0x04
 #define REG_POL_INV_PORT1		0x05
 #define REG_CONF_PORT0			0x06
-#define REG_CONG_PORT1			0x07
+#define REG_CONF_PORT1			0x07
 #define REG_OUT_DRV_STRENGTH_PORT0_L	0x40
 #define REG_OUT_DRV_STRENGTH_PORT0_H	0x41
 #define REG_OUT_DRV_STRENGTH_PORT1_L	0x42
@@ -129,7 +129,8 @@ static int write_port_regs(struct device *dev, u8_t reg,
 		"0x%X", i2c_addr, reg, buf->byte[0], (reg + 1),
 		buf->byte[1]);
 
-	ret = i2c_burst_write(i2c_master, i2c_addr, reg, buf->byte, 2);
+	//ret = i2c_burst_write(i2c_master, i2c_addr, reg, buf->byte, 2);
+	ret = i2c_reg_write_byte(i2c_master, i2c_addr, reg, buf->byte[0]);
 	if (ret) {
 		LOG_ERR("PCAL9535A[0x%X]: error writing from register 0x%X "
 			"(%d)", i2c_addr, reg, ret);
@@ -184,7 +185,7 @@ static int setup_pin_dir(struct device *dev, int access_op,
 		goto done;
 	}
 
-	ret = write_port_regs(dev, REG_CONF_PORT0, port);
+	ret = write_port_regs(dev, REG_CONF_PORT1, port);
 
 done:
 	return ret;
@@ -245,7 +246,7 @@ static int setup_pin_pullupdown(struct device *dev, int access_op,
 		goto done;
 	}
 
-	ret = write_port_regs(dev, REG_PUD_SEL_PORT0, port);
+	ret = write_port_regs(dev, REG_PUD_SEL_PORT1, port);
 	if (ret) {
 		goto done;
 	}
@@ -277,7 +278,7 @@ en_dis:
 		goto done;
 	}
 
-	ret = write_port_regs(dev, REG_PUD_EN_PORT0, port);
+	ret = write_port_regs(dev, REG_PUD_EN_PORT1, port);
 
 done:
 	return ret;
@@ -329,7 +330,7 @@ static int setup_pin_polarity(struct device *dev, int access_op,
 		goto done;
 	}
 
-	ret = write_port_regs(dev, REG_POL_INV_PORT0, port);
+	ret = write_port_regs(dev, REG_POL_INV_PORT1, port);
 	if (!ret) {
 		drv_data->out_pol_inv = port->all;
 	}
@@ -446,7 +447,7 @@ static int gpio_pcal9535a_write(struct device *dev, int access_op,
 		goto done;
 	}
 
-	ret = write_port_regs(dev, REG_OUTPUT_PORT0, port);
+	ret = write_port_regs(dev, REG_OUTPUT_PORT1, port);
 
 done:
 	return ret;

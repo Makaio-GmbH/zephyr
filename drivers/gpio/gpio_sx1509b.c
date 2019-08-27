@@ -13,6 +13,8 @@
 #include <drivers/i2c.h>
 #include <sys/byteorder.h>
 #include <sys/util.h>
+#include <logging/log.h>
+LOG_MODULE_REGISTER(sx1509b, 4);
 
 #ifdef CONFIG_HAS_DTS_I2C
 #define CONFIG_GPIO_SX1509B_DEV_NAME	DT_INST_0_SEMTECH_SX1509B_LABEL
@@ -356,7 +358,7 @@ static int gpio_sx1509b_init(struct device *dev)
 
 	ret = i2c_reg_write_byte(drv_data->i2c_master, cfg->i2c_slave_addr,
 				 SX1509B_REG_CLOCK,
-				 SX1509B_REG_CLOCK_FOSC_INT_2MHZ);
+							 SX1509B_REG_CLOCK_FOSC_OFF);
 	if (ret) {
 		goto out;
 	}

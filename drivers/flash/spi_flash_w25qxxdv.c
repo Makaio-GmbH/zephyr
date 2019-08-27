@@ -10,9 +10,12 @@
 #include <drivers/spi.h>
 #include <init.h>
 #include <string.h>
+#include <logging/log.h>
 #include "spi_flash_w25qxxdv_defs.h"
 #include "spi_flash_w25qxxdv.h"
 #include "flash_priv.h"
+
+LOG_MODULE_REGISTER(w25q,4);
 
 #if defined(CONFIG_MULTITHREADING)
 #define SYNC_INIT() k_sem_init( \
@@ -443,6 +446,9 @@ static int spi_flash_init(struct device *dev)
 	dev_layout.pages_count = (CONFIG_SPI_FLASH_W25QXXDV_FLASH_SIZE / W25QXXDV_SECTOR_SIZE);
 	dev_layout.pages_size = W25QXXDV_SECTOR_SIZE;
 #endif
+
+		LOG_WRN("Hi %s: %d", log_strdup(CONFIG_SPI_FLASH_W25QXXDV_DRV_NAME), ret);
+		k_sleep(1000);
 
 	return ret;
 }
