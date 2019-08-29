@@ -18,6 +18,7 @@
  */
 #include <stdint.h>
 #include <stddef.h>
+#include <zephyr.h>
 
 #ifndef NULL
 #error "Error NULL definition should be done. Please add required include "
@@ -27,6 +28,6 @@
  *
  * Given a floating point value f it's .16 bit point is (int)(f*(1<<16))
  */
-typedef uint32_t FixPoint1616_t;
+typedef u32_t FixPoint1616_t;
 
 #endif /* ZEPHYR_DRIVERS_SENSOR_VL53L0X_VL53L1_TYPES_H_ */

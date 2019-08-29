@@ -16,3 +16,23 @@ inherits:
 properties:
     compatible:
       constraint: "st,vl53l1x"
+
+    irq-gpios:
+      type: compound
+      category: optional
+      generation: define, use-prop-name
+
+    xshut-gpios:
+      type: compound
+      category: optional
+      generation: define, use-prop-name
+
+    measurement-timing-budget:
+      type: int
+      category: optional
+      description: Timing budget for measurements in ms
+
+    inter-measurement-period:
+      type: int
+      category: optional
+      description: Interval between measurements in ms

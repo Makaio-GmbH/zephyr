@@ -40,4 +40,18 @@ config VL53L1X_PROXIMITY_THRESHOLD
 	help
 	  Threshold used for proximity detection when sensor is used with SENSOR_CHAN_PROX.
 
+config VL53L1X_MEAS_TIMING_BUDGET
+    int "Default measurement timing budget"
+    default 50
+    help
+        Timing budget for measurements in ms.
+        Can be overriden in dts with measurement-timing-budget.
+
+config VL53L1X_INTERMEASUREMENT_PERIOD
+    int "Inter measurement period in ms"
+    default 500
+    help
+        Time between measurements in ms. Must be > timing budget + 4ms.
+        Can be overriden in dts with inter-measurement-period.
+
 endif # VL53L1X

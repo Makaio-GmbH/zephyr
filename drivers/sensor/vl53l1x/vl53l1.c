@@ -1,11 +1,7 @@
-//
-// Created by Christoph Schramm on 2019-08-28.
-//
-
-/* vl53l0x.c - Driver for ST VL53L0X time of flight sensor */
-
+/* vl53l1.c - Driver for ST VL53L1X time of flight sensor */
 /*
  * Copyright (c) 2017 STMicroelectronics
+ * Copyright (c) 2019 Makaio GmbH
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -25,14 +21,72 @@
 #include "vl53l1_api.h"
 #include "vl53l1_platform.h"
 
-#define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
+
+
+#define LOG_LEVEL 4//CONFIG_SENSOR_LOG_LEVEL
 LOG_MODULE_REGISTER(VL53L1X);
 
+struct vl53l1x_pin_config {
+	bool use;
+	u32_t gpios_pin;
+	char *gpios_ctrl;
+};
+
 struct vl53l1x_data {
-	struct device *i2c;
+	char *i2c_dev_name;
+	u16_t i2c_addr;
 	VL53L1_Dev_t vl53l1x;
 	VL53L1_RangingMeasurementData_t RangingMeasurementData;
+	int inter_measurement_period;
+	int timing_budget;
+	struct vl53l1x_pin_config irq_config;
+	struct vl53l1x_pin_config xshut_config;
+	u8_t instance_id;
 };
+
+static void vl53l1x_print_device_settings(struct device *dev)
+{
+	struct vl53l1x_data *drv_data = dev->driver_data;
+
+	struct vl53l1x_pin_config *irq_cfg = &drv_data->irq_config;
+
+	LOG_DBG("Name:\t\t%s", log_strdup(dev->config->name));
+	LOG_DBG("Instance ID:\t%u", drv_data->instance_id);
+	LOG_DBG("I2C Address:\t0x%02x", drv_data->i2c_addr);
+
+	if (irq_cfg && irq_cfg->use) {
+		LOG_DBG("IRQ:\t\tenabled, ctrl %s, pin %u",
+				irq_cfg->gpios_ctrl, irq_cfg->gpios_pin);
+	} else {
+		LOG_DBG("IRQ:\t\tdisabled");
+	}
+
+	struct vl53l1x_pin_config *xshut_cfg = &drv_data->xshut_config;
+
+	if (xshut_cfg && xshut_cfg->use) {
+		LOG_DBG("XSHUT:\t\tenabled, ctrl %s, pin %u",
+				xshut_cfg->gpios_ctrl, xshut_cfg->gpios_pin);
+	} else {
+		LOG_DBG("XSHUT:\t\tdisabled");
+	}
+
+
+}
+
+static void vl53l1x_print_ranging_data(VL53L1_Dev_t *Dev)
+{
+	static VL53L1_RangingMeasurementData_t RangingData;
+
+	VL53L1_Error status = VL53L1_GetRangingMeasurementData(Dev, &RangingData);
+	if(!status)
+	{
+		LOG_DBG("Status: %d", RangingData.RangeStatus);
+		LOG_DBG("RangeMilliMeter: %d", RangingData.RangeMilliMeter);
+
+	} else {
+		LOG_ERR("Error: %d", status);
+	}
+}
 
 static int vl53l1x_init(struct device *dev)
 {
@@ -41,47 +95,41 @@ static int vl53l1x_init(struct device *dev)
 	u16_t vl53l1x_id = 0U;
 	VL53L1_DeviceInfo_t vl53l1x_dev_info;
 
+	u8_t data_ready;
+	u8_t raw_ready;
+
 	LOG_DBG("enter in %s", __func__);
 
-#ifdef CONFIG_VL53L0X_XSHUT_CONTROL_ENABLE
-	struct device *gpio;
+	vl53l1x_print_device_settings(dev);
 
-	/* configure and set VL53L0X_XSHUT_Pin */
-	gpio = device_get_binding(CONFIG_VL53L0X_XSHUT_GPIO_DEV_NAME);
-	if (gpio == NULL) {
+	k_sleep(10000);
+
+	VL53L1_Dev_t vl53l1dev = {
+			.I2cDevAddr = drv_data->i2c_addr,
+			.I2cHandle = device_get_binding(drv_data->i2c_dev_name)
+	};
+
+
+	drv_data->vl53l1x.I2cDevAddr = drv_data->i2c_addr;
+	drv_data->vl53l1x.I2cHandle = device_get_binding(drv_data->i2c_dev_name);
+
+
+	if (vl53l1dev.I2cHandle == NULL) {
 		LOG_ERR("Could not get pointer to %s device.",
-			CONFIG_VL53L0X_XSHUT_GPIO_DEV_NAME);
+				drv_data->i2c_dev_name);
 		return -EINVAL;
 	}
 
-	if (gpio_pin_configure(gpio,
-			       CONFIG_VL53L0X_XSHUT_GPIO_PIN_NUM,
-			       GPIO_DIR_OUT | GPIO_PUD_PULL_UP) < 0) {
-		LOG_ERR("Could not configure GPIO %s %d).",
-			CONFIG_VL53L0X_XSHUT_GPIO_DEV_NAME,
-			CONFIG_VL53L0X_XSHUT_GPIO_PIN_NUM);
-		return -EINVAL;
-	}
-
-	gpio_pin_write(gpio, CONFIG_VL53L0X_XSHUT_GPIO_PIN_NUM, 1);
-	k_sleep(100);
-#endif
-
-	drv_data->i2c = device_get_binding(DT_INST_0_ST_VL53L1X_BUS_NAME);
-	if (drv_data->i2c == NULL) {
-		LOG_ERR("Could not get pointer to %s device.",
-			DT_INST_0_ST_VL53L1X_BUS_NAME);
-		return -EINVAL;
-	}
-
-
-	drv_data->vl53l1x.I2cHandle = drv_data->i2c;
-	drv_data->vl53l1x.I2cDevAddr = DT_INST_0_ST_VL53L1X_BASE_ADDRESS;
+	VL53L1_software_reset(&drv_data->vl53l1x);
 
 	ret = VL53L1_WaitDeviceBooted(&drv_data->vl53l1x);
+
 	if (ret) {
 		return -ETIMEDOUT;
 	}
+
+	LOG_DBG("VL53L1_WaitDeviceBooted succeeded");
+
 
 	/* sensor init */
 	ret = VL53L1_DataInit(&drv_data->vl53l1x);
@@ -89,14 +137,168 @@ static int vl53l1x_init(struct device *dev)
 		LOG_ERR("VL53L1X_DataInit return error (%d)", ret);
 		return -ENOTSUP;
 	}
+	k_sleep(1000);
 
+	LOG_DBG("VL53L1_DataInit succeeded");
+
+	/* static init */
+	ret = VL53L1_StaticInit(&drv_data->vl53l1x);
+	if (ret < 0) {
+		LOG_ERR("VL53L1_StaticInit return error (%d)", ret);
+		return -ENOTSUP;
+	}
+
+	k_sleep(1000);
+
+
+	LOG_DBG("VL53L1_StaticInit succeeded");
+
+	ret = VL53L1_SetDistanceMode(&drv_data->vl53l1x,
+								 VL53L1_DISTANCEMODE_LONG);
+	if (ret < 0) {
+		LOG_ERR("VL53L1_SetDistanceMode return error (%d)", ret);
+		return -ENOTSUP;
+	}
+	k_sleep(1000);
+
+	VL53L1_SetPresetMode(&drv_data->vl53l1x, VL53L1_PRESETMODE_LOWPOWER_AUTONOMOUS);
+
+
+
+	ret = VL53L1_SetMeasurementTimingBudgetMicroSeconds(&drv_data->vl53l1x, 50 * 1000);
+	if (ret < 0) {
+		LOG_ERR("VL53L1_SetMeasurementTimingBudgetMicroSeconds return error (%d)", ret);
+		return -ENOTSUP;
+	}
+	k_sleep(1000);
+
+	ret = VL53L1_SetInterMeasurementPeriodMilliSeconds(&drv_data->vl53l1x, 500);
+	if (ret < 0) {
+		LOG_ERR("VL53L1_SetInterMeasurementPeriodMilliSeconds return error (%d)", ret);
+		return -ENOTSUP;
+	}
+	k_sleep(1000);
+
+
+	LOG_DBG("Start Measurement");
+	ret = VL53L1_StartMeasurement(&drv_data->vl53l1x);
+	LOG_DBG("Start measurement result: %d", ret);
+
+	VL53L1_WaitMeasurementDataReady(&drv_data->vl53l1x);
+	k_sleep(1000);
+
+	for(u8_t i = 0; i < 3; i++)
+	{
+		VL53L1_RdByte(
+				&drv_data->vl53l1x,
+				VL53L1_GPIO__TIO_HV_STATUS,
+				&raw_ready);
+		LOG_DBG("dready: %u", raw_ready);
+		k_sleep(1000);
+
+		VL53L1_GetMeasurementDataReady(&drv_data->vl53l1x, &data_ready);
+		LOG_DBG("Cool: %u", data_ready);
+	}
+
+	while(true)
+	{
+		k_sleep(1000);
+		LOG_DBG("OK");
+	}
+	LOG_DBG("VL53L1_SetDistanceMode succeeded");
+	k_sleep(1000);
+	VL53L1_SetPresetMode (&drv_data->vl53l1x,
+						   VL53L1_PRESETMODE_LOWPOWER_AUTONOMOUS);
+
+	k_sleep(1000);
+
+	//ret = VL53L1_ClearInterruptAndStartMeasurement(&drv_data->vl53l1x);
+	//LOG_DBG("VL53L1_ClearInterruptAndStartMeasurement: %d", ret);
+	//ret = VL53L1_StartMeasurement(&drv_data->vl53l1x);
+
+
+
+	while(true)
+	{
+		VL53L1_RdByte(
+				&drv_data->vl53l1x,
+				VL53L1_GPIO__TIO_HV_STATUS,
+				&raw_ready);
+		LOG_DBG("dready: %u", raw_ready);
+		k_sleep(1000);
+
+		VL53L1_GetMeasurementDataReady(&drv_data->vl53l1x, &data_ready);
+		LOG_DBG("Cool: %u", data_ready);
+		vl53l1x_print_ranging_data(&drv_data->vl53l1x);
+		ret = VL53L1_StartMeasurement(&drv_data->vl53l1x);
+		/*
+		LOG_DBG("VL53L1_ClearInterruptAndStartMeasurement: %d", ret);
+		VL53L1_GetMeasurementDataReady(&drv_data->vl53l1x, &data_ready);
+		LOG_DBG("Cool: %u", data_ready);
+		k_sleep(1000);
+		 */
+	}
 
 	return 0;
 }
 
-static struct vl53l1x_data vl53l1x_driver;
+#define VL53L1X_PIN_CFG(id, pintype)					\
+static const struct vl53l1x_pin_config\
+	vl53l1x_##pintype##_##id##_cfg = {	\
+		.use = true,	\
+		.gpios_pin =	\
+		DT_INST_##id##_ST_VL53L1X_##pintype##_GPIOS_PIN,	\
+		.gpios_ctrl =	\
+		DT_INST_##id##_ST_VL53L1X_##pintype##_GPIOS_CONTROLLER	\
+}
 
-DEVICE_AND_API_INIT(vl53l1x, DT_INST_0_ST_VL53L1X_LABEL, vl53l1x_init, &vl53l1x_driver,
-		    NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, NULL);
-//		&vl53l0x_api_funcs);
+#define VL53L1X_NOPIN_CFG(id, pintype)					\
+static const struct vl53l1x_pin_config	\
+	vl53l1x_##pintype##_##id##_cfg = {	\
+/* this is unnecessary, but let's keep it for clarity */	\
+		.use = false,	\
+	}
+
+
+
+
+#define VL53L1X_INST_INIT(id)	\
+static  struct vl53l1x_data vl53l1x_driver_##id##_data = {	\
+		.instance_id = id,	\
+		.i2c_dev_name = DT_INST_##id##_ST_VL53L1X_BUS_NAME,	\
+		.i2c_addr = DT_INST_##id##_ST_VL53L1X_BASE_ADDRESS,	\
+		.irq_config = vl53l1x_IRQ_##id##_cfg,	\
+		.xshut_config = vl53l1x_XSHUT_##id##_cfg,	\
+		.inter_measurement_period =	\
+		DT_INST_##id##_ST_VL53L1X_INTER_MEASUREMENT_PERIOD,	\
+		.timing_budget =	\
+		DT_INST_##id##_ST_VL53L1X_MEASUREMENT_TIMING_BUDGET	\
+};	\
+DEVICE_AND_API_INIT(vl53l1x,	\
+		DT_INST_##id##_ST_VL53L1X_LABEL,	\
+		vl53l1x_init,	\
+		&vl53l1x_driver_##id##_data,	\
+NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, NULL)
+
+#ifdef DT_INST_0_ST_VL53L1X_BASE_ADDRESS
+#ifndef DT_INST_0_ST_VL53L1X_INTER_MEASUREMENT_PERIOD
+#define DT_INST_0_ST_VL53L1X_INTER_MEASUREMENT_PERIOD
+			CONFIG_VL53L1X_INTERMEASUREMENT_PERIOD
+#endif
+#ifndef DT_INST_0_ST_VL53L1X_MEASUREMENT_TIMING_BUDGET
+#define DT_INST_0_ST_VL53L1X_MEASUREMENT_TIMING_BUDGET
+			CONFIG_VL53L1X_MEAS_TIMING_BUDGET
+#endif
+#ifdef DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN
+VL53L1X_PIN_CFG(0, IRQ);
+#else
+VL53L1X_NOPIN_CFG(0, IRQ);
+#endif
+#ifdef DT_INST_0_ST_VL53L1X_XSHUT_GPIOS_PIN
+VL53L1X_PIN_CFG(0, XSHUT);
+#else
+VL53L1X_NOPIN_CFG(0, XSHUT);
+#endif
+VL53L1X_INST_INIT(0);
+#endif
 
