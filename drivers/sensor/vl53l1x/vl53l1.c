@@ -29,6 +29,15 @@ LOG_MODULE_REGISTER(VL53L1X);
 static struct gpio_callback vl53l1x_cb;
 K_SEM_DEFINE(vl53l1x_sem, 0, 1);
 
+#define MY_STACK_SIZE 1024
+#define MY_PRIORITY 30
+
+
+void my_entry_point(void* arg0, void *arg1, void *arg2);
+
+
+
+
 void vl53l1x_interrupt_cb(struct device *gpiob, struct gpio_callback *cb,
 						   u32_t pins)
 {
@@ -177,12 +186,6 @@ void i2c_test(VL53L1_Dev_t *dev)
 			k_sleep(1000);
 		}
 
-	} else {
-		for(u8_t i = 0; i < 10; i++)
-		{
-			LOG_DBG("i2c test succeeded");
-			k_sleep(1000);
-		}
 	}
 }
 
@@ -203,7 +206,6 @@ static int vl53l1x_init(struct device *dev)
 
 	vl53l1x_print_device_settings(dev);
 
-	k_sleep(10000);
 
 	VL53L1_Dev_t vl53l1dev = {
 			.I2cDevAddr = drv_data->i2c_addr,
@@ -292,25 +294,24 @@ static int vl53l1x_init(struct device *dev)
 		return -ENOTSUP;
 	}
 
-	ret = VL53L1_SetInterMeasurementPeriodMilliSeconds(&drv_data->vl53l1x, 1000);
+	ret = VL53L1_SetInterMeasurementPeriodMilliSeconds(&drv_data->vl53l1x, 5000);
 	if (ret < 0) {
 		LOG_ERR("VL53L1_SetInterMeasurementPeriodMilliSeconds return error (%d)", ret);
 		return -ENOTSUP;
 	}
 	LOG_DBG("Start Measurement");
-	ret = VL53L1_StartMeasurement(&drv_data->vl53l1x);
+	/*ret = VL53L1_StartMeasurement(&drv_data->vl53l1x);
 	k_sleep(5000);
 	VL53L1_StopMeasurement(&drv_data->vl53l1x);
 	k_sleep(5000);
-	LOG_DBG("Start measurement result: %d", ret);
+	LOG_DBG("Start measurement result: %d", ret);*/
 	struct device *irq_gpios = device_get_binding(DT_INST_0_ST_VL53L1X_IRQ_GPIOS_CONTROLLER);
-	gpio_pin_configure(irq_gpios, DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN, GPIO_DIR_IN | GPIO_INT_ACTIVE_LOW | GPIO_INT_EDGE | GPIO_INT_DOUBLE_EDGE | GPIO_PUD_NORMAL);
+	gpio_pin_configure(irq_gpios, DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN, GPIO_DIR_IN | GPIO_INT_ACTIVE_LOW | GPIO_INT | GPIO_INT_EDGE | GPIO_PUD_PULL_UP);
 
 	gpio_init_callback(&vl53l1x_cb, vl53l1x_interrupt_cb, BIT(DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN));
 
 	gpio_add_callback(irq_gpios, &vl53l1x_cb);
 	gpio_pin_enable_callback(irq_gpios, DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN);
-
 	int irq_val = 0;
 	/*
 	device_set_power_state(drv_data->vl53l1x.I2cHandle, DEVICE_PM_LOW_POWER_STATE, NULL, NULL);
@@ -319,33 +320,42 @@ static int vl53l1x_init(struct device *dev)
 	struct device *irq_gpios = device_get_binding(DT_INST_0_ST_VL53L1X_IRQ_GPIOS_CONTROLLER);
 	gpio_pin_configure(irq_gpios, DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN, GPIO_DIR_IN);
 */
-	VL53L1_RangingMeasurementData_t measurementData = {0};
 
+	//k_thread_start(my_tid);
+	return 0;
+	VL53L1_RangingMeasurementData_t measurementData = {0};
 
 	while(true)
 	{
-
-		ret = VL53L1_WaitMeasurementDataReady(&drv_data->vl53l1x);
-		LOG_DBG("VL53L1_WaitMeasurementDataReady: %d", ret);
-		k_sem_take(&vl53l1x_sem, K_FOREVER);
-		VL53L1_ReadMulti(&drv_data->vl53l1x, VL53L1_RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0,&rangedata,2);
-
-		//LOG_DBG("rangedata: %u", rangedata);
-
-		VL53L1_GetRangingMeasurementData(&drv_data->vl53l1x, &measurementData);
-		//LOG_DBG("StreamCount: %u", measurementData.StreamCount);
-		LOG_DBG("ret: %d", ret);
-		LOG_DBG("MM: %d", measurementData.RangeMilliMeter);
-		LOG_DBG("Status: %u", measurementData.RangeStatus);
-
-			VL53L1_StopMeasurement(&drv_data->vl53l1x);
-		gpio_pin_write(xshut_gpios, DT_INST_0_ST_VL53L1X_XSHUT_GPIOS_PIN, 0);
-		k_sleep(30000);
-		gpio_pin_write(xshut_gpios, DT_INST_0_ST_VL53L1X_XSHUT_GPIOS_PIN, 1);
-		k_sleep(3000);
 		ret =  VL53L1_ClearInterruptAndStartMeasurement(&drv_data->vl53l1x);
-		LOG_DBG("OK");
+		k_sem_take(&vl53l1x_sem, K_FOREVER);
 	}
+
+
+//
+//	while(true)
+//	{
+//		gpio_pin_read(irq_gpios, DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN, &irq_val);
+//		LOG_DBG("irq before wait: %d", irq_val);
+//		ret = VL53L1_WaitMeasurementDataReady(&drv_data->vl53l1x);
+//		gpio_pin_read(irq_gpios, DT_INST_0_ST_VL53L1X_IRQ_GPIOS_PIN, &irq_val);
+//
+//		LOG_DBG("VL53L1_WaitMeasurementDataReady: %d", ret);
+//		LOG_DBG("irq after wait: %d", irq_val);
+//
+//		//	k_sem_take(&vl53l1x_sem, K_FOREVER);
+//
+//		VL53L1_GetRangingMeasurementData(&drv_data->vl53l1x, &measurementData);
+//		//LOG_DBG("StreamCount: %u", measurementData.StreamCount);
+//		LOG_DBG("ret: %d", ret);
+//		LOG_DBG("MM: %d", measurementData.RangeMilliMeter);
+//		LOG_DBG("Status: %u", measurementData.RangeStatus);
+//
+//			VL53L1_StopMeasurement(&drv_data->vl53l1x);
+//			k_sleep(5000);
+//		ret =  VL53L1_ClearInterruptAndStartMeasurement(&drv_data->vl53l1x);
+//		LOG_DBG("OK");
+//	}
 
 
 	while(true)
@@ -451,7 +461,10 @@ DEVICE_AND_API_INIT(vl53l1x,	\
 		DT_INST_##id##_ST_VL53L1X_LABEL,	\
 		vl53l1x_init,	\
 		&vl53l1x_driver_##id##_data,	\
-NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, NULL)
+NULL, POST_KERNEL, CONFIG_SENSOR_INIT_PRIORITY, NULL);	\
+K_THREAD_DEFINE(my_tid_##id##_thread, MY_STACK_SIZE,	\
+				my_entry_point, &vl53l1x_driver_##id##_data, NULL, NULL,	\
+				MY_PRIORITY, 0, K_NO_WAIT)
 
 #ifdef DT_INST_0_ST_VL53L1X_BASE_ADDRESS
 #ifndef DT_INST_0_ST_VL53L1X_INTER_MEASUREMENT_PERIOD
@@ -474,4 +487,23 @@ VL53L1X_NOPIN_CFG(0, XSHUT);
 #endif
 VL53L1X_INST_INIT(0);
 #endif
+
+
+void my_entry_point(void* driver_data, void *arg1, void *arg2)
+{
+	struct vl53l1x_data *drv_data = (struct vl53l1x_data *) driver_data;
+	VL53L1_RangingMeasurementData_t measurementData = {0};
+	int ret;
+	while(true)
+	{
+
+		ret =  VL53L1_ClearInterruptAndStartMeasurement(&drv_data->vl53l1x);
+		k_sem_take(&vl53l1x_sem, K_FOREVER);
+		VL53L1_GetRangingMeasurementData(&drv_data->vl53l1x, &measurementData);
+		LOG_DBG("StreamCount: %u", measurementData.StreamCount);
+		LOG_DBG("ret: %d", ret);
+		LOG_DBG("MM: %d", measurementData.RangeMilliMeter);
+		LOG_DBG("Status: %u", measurementData.RangeStatus);
+	}
+}
 
