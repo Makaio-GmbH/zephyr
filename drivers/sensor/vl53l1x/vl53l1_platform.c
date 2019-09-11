@@ -80,15 +80,15 @@ LOG_MODULE_DECLARE(VL53L1X);
 VL53L1_Error VL53L1_WriteMulti(VL53L1_DEV Dev, u16_t index,
 				u8_t *pdata, u32_t count)
 {
-	LOG_DBG("Write multi (count: %u)", count);
 
 	VL53L1_Error Status = VL53L1_ERROR_NONE;
 	s32_t status_int;
 	u8_t I2CBuffer[count + 2];
 
-	u8_t reg_addr[] = { index >> 8, index & 0xff };
-
+	I2CBuffer[0] = index >> 8;
+	I2CBuffer[1] = index & 0xff ;
 	memcpy(&I2CBuffer[2], pdata, count);
+
 
 	status_int =  i2c_write(Dev->I2cHandle, I2CBuffer, count + 2,
 				Dev->I2cDevAddr);
@@ -105,7 +105,7 @@ VL53L1_Error VL53L1_WriteMulti(VL53L1_DEV Dev, u16_t index,
 VL53L1_Error VL53L1_ReadMulti(VL53L1_DEV Dev, u16_t index,
 				u8_t *pdata, u32_t count)
 {
-	LOG_DBG("Read multi");
+	//LOG_DBG("Read multi");
 
 	VL53L1_Error Status = VL53L1_ERROR_NONE;
 	s32_t status_int;
@@ -126,7 +126,7 @@ VL53L1_Error VL53L1_ReadMulti(VL53L1_DEV Dev, u16_t index,
 
 VL53L1_Error VL53L1_WrByte(VL53L1_DEV Dev, u16_t index, u8_t data)
 {
-	LOG_DBG("Write byte");
+	//LOG_DBG("Write byte");
 	VL53L1_Error Status = VL53L1_ERROR_NONE;
 	s32_t status_int;
 
@@ -149,7 +149,7 @@ VL53L1_Error VL53L1_WrByte(VL53L1_DEV Dev, u16_t index, u8_t data)
 
 VL53L1_Error VL53L1_WrWord(VL53L1_DEV Dev, u16_t index, u16_t data)
 {
-	LOG_DBG("Write word");
+	//LOG_DBG("Write word");
 
 	VL53L1_Error Status = VL53L1_ERROR_NONE;
 	s32_t status_int;
@@ -218,7 +218,7 @@ VL53L1_Error VL53L1_UpdateByte(VL53L1_DEV Dev, u16_t index,
 
 VL53L1_Error VL53L1_RdByte(VL53L1_DEV Dev, u16_t index, u8_t *data)
 {
-	LOG_DBG("Read byte");
+	//LOG_DBG("Read byte");
 
 	VL53L1_Error Status = VL53L1_ERROR_NONE;
 	s32_t status_int;
@@ -240,7 +240,7 @@ VL53L1_Error VL53L1_RdByte(VL53L1_DEV Dev, u16_t index, u8_t *data)
 
 VL53L1_Error VL53L1_RdWord(VL53L1_DEV Dev, u16_t index, u16_t *data)
 {
-	LOG_DBG("Read word");
+	//LOG_DBG("Read word");
 
 	VL53L1_Error Status = VL53L1_ERROR_NONE;
 
@@ -266,6 +266,27 @@ VL53L1_Error VL53L1_RdWord(VL53L1_DEV Dev, u16_t index, u16_t *data)
 VL53L1_Error VL53L1_RdDWord(VL53L1_DEV Dev, u16_t index, u32_t *data)
 {
 	VL53L1_Error Status = VL53L1_ERROR_NONE;
+
+	int32_t status_int;
+	uint8_t buf[4];
+
+	u8_t reg_addr[] = { index >> 8, index & 0xff };
+
+	status_int =  i2c_write_read(Dev->I2cHandle, Dev->I2cDevAddr,
+								 reg_addr, ARRAY_SIZE(reg_addr),
+								 buf, ARRAY_SIZE(buf));
+	if (status_int < 0) {
+		LOG_ERR("VL53L1_RdDWord failed");
+		return -EIO;
+	}
+	uint32_t tmp = 0;
+	tmp |= buf[3]<<0;
+	tmp |= buf[2]<<8;
+	tmp |= buf[1]<<16;
+	tmp |= buf[0]<<24;
+	*data = tmp;
+
+	return Status;
 
 	LOG_ERR("Implement %s", log_strdup(__func__));
 
