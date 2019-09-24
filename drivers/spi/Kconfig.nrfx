@@ -208,6 +208,7 @@ config SPI_3_NRF_SPIS
 	  Due to hardware limitations the implementation supports only simple
 	  buffers (consisting of one part) located in RAM.
 
+
 endchoice
 
 if SPI_3_NRF_SPIM || SPI_3_NRF_SPIS

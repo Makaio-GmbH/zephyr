@@ -362,7 +362,7 @@ static int spim_nrfx_pm_control(struct device *dev, u32_t ctrl_command,
 
 #if NRFX_CHECK(NRFX_SPIM_EXTENDED_ENABLED)
 #define SPI_NRFX_SPIM_EXTENDED_CONFIG(idx) \
-	.rx_delay = CONFIG_SPI_##idx##_NRF_RX_DELAY,
+	.rx_delay = 2,//CONFIG_SPI_##idx##_NRF_RX_DELAY,
 #else
 #define SPI_NRFX_SPIM_EXTENDED_CONFIG(idx)
 #endif
