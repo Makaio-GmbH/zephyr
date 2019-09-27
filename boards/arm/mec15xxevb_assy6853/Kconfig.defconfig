@@ -30,6 +30,7 @@ config PINMUX_XEC_GPIO140_176
 	default y
 
 config PINMUX_XEC_GPIO200_236
+	default y if ADC_XEC
 	default n
 
 config PINMUX_XEC_GPIO240_276
@@ -107,5 +108,15 @@ config SYS_CLOCK_TICKS_PER_SEC
 	default 1000
 
 endif # RTOS_TIMER
+
+if PS2
+
+config PS2_XEC_0
+        default y
+
+config PS2_XEC_1
+        default y
+
+endif #PS2
 
 endif # BOARD_MEC15XXEVB_ASSY6853

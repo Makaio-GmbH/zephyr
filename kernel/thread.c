@@ -192,6 +192,7 @@ int z_impl_k_thread_name_set(struct k_thread *thread, const char *value)
 
 	strncpy(thread->name, value, CONFIG_THREAD_MAX_NAME_LEN);
 	thread->name[CONFIG_THREAD_MAX_NAME_LEN - 1] = '\0';
+	sys_trace_thread_name_set(thread);
 	return 0;
 #else
 	ARG_UNUSED(thread);
@@ -774,6 +775,10 @@ void z_init_thread_base(struct _thread_base *thread_base, int priority,
 
 	thread_base->sched_locked = 0U;
 
+#ifdef CONFIG_SMP
+	thread_base->is_idle = 0;
+#endif
+
 	/* swap_data does not need to be initialized */
 
 	z_init_thread_timeout(thread_base);
@@ -804,8 +809,10 @@ FUNC_NORETURN void k_thread_user_mode_enter(k_thread_entry_t entry,
 #ifdef SPIN_VALIDATE
 bool z_spin_lock_valid(struct k_spinlock *l)
 {
-	if (l->thread_cpu) {
-		if ((l->thread_cpu & 3) == _current_cpu->id) {
+	uintptr_t thread_cpu = l->thread_cpu;
+
+	if (thread_cpu) {
+		if ((thread_cpu & 3) == _current_cpu->id) {
 			return false;
 		}
 	}

@@ -66,9 +66,8 @@ LOG_MODULE_REGISTER(os);
 /* boot time measurement items */
 
 #ifdef CONFIG_BOOT_TIME_MEASUREMENT
-u64_t __noinit __start_time_stamp; /* timestamp when kernel starts */
-u64_t __noinit __main_time_stamp;  /* timestamp when main task starts */
-u64_t __noinit __idle_time_stamp;  /* timestamp when CPU goes idle */
+u32_t __noinit __main_time_stamp;  /* timestamp when main task starts */
+u32_t __noinit __idle_time_stamp;  /* timestamp when CPU goes idle */
 #endif
 
 /* init/main and idle threads */
@@ -284,10 +283,7 @@ static void bg_thread_main(void *unused1, void *unused2, void *unused3)
 #endif
 
 #ifdef CONFIG_BOOT_TIME_MEASUREMENT
-	/* record timestamp for kernel's _main() function */
-	extern u64_t __main_time_stamp;
-
-	__main_time_stamp = (u64_t)k_cycle_get_32();
+	__main_time_stamp = k_cycle_get_32();
 #endif
 
 	extern void main(void);
@@ -314,14 +310,14 @@ void __weak main(void)
 #if defined(CONFIG_MULTITHREADING)
 static void init_idle_thread(struct k_thread *thr, k_thread_stack_t *stack)
 {
-#ifdef CONFIG_SMP
-	thr->base.is_idle = 1U;
-#endif
-
 	z_setup_new_thread(thr, stack,
 			  IDLE_STACK_SIZE, idle, NULL, NULL, NULL,
 			  K_LOWEST_THREAD_PRIO, K_ESSENTIAL, IDLE_THREAD_NAME);
 	z_mark_thread_as_started(thr);
+
+#ifdef CONFIG_SMP
+	thr->base.is_idle = 1U;
+#endif
 }
 #endif /* CONFIG_MULTITHREADING */
 

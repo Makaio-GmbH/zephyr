@@ -48,7 +48,7 @@
  * is not defined in platform, generate an error
  */
 #if defined(CONFIG_HPET_TIMER)
-#define TICK_IRQ CONFIG_HPET_TIMER_IRQ
+#define TICK_IRQ DT_INST_0_INTEL_HPET_IRQ_0
 #elif defined(CONFIG_APIC_TIMER)
 #define TICK_IRQ CONFIG_APIC_TIMER_IRQ
 #elif defined(CONFIG_LOAPIC_TIMER)
@@ -917,19 +917,20 @@ void test_kernel_thread(void)
 /*test case main entry*/
 void test_main(void)
 {
+	(void)test_k_sleep;
 
 	kernel_init_objects();
 
 	ztest_test_suite(context,
 			 ztest_unit_test(test_kernel_interrupts),
-			 ztest_unit_test(test_kernel_timer_interrupts),
+			 ztest_1cpu_unit_test(test_kernel_timer_interrupts),
 			 ztest_unit_test(test_kernel_ctx_thread),
-			 ztest_unit_test(test_busy_wait),
-			 ztest_unit_test(test_k_sleep),
+			 ztest_1cpu_unit_test(test_busy_wait),
+			 ztest_1cpu_unit_test(test_k_sleep),
 			 ztest_unit_test(test_kernel_cpu_idle_atomic),
 			 ztest_unit_test(test_kernel_cpu_idle),
-			 ztest_unit_test(test_k_yield),
-			 ztest_unit_test(test_kernel_thread)
+			 ztest_1cpu_unit_test(test_k_yield),
+			 ztest_1cpu_unit_test(test_kernel_thread)
 			 );
 	ztest_run_test_suite(context);
 }

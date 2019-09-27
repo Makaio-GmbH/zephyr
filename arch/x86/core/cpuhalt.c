@@ -7,10 +7,6 @@
 #include <debug/tracing.h>
 #include <arch/cpu.h>
 
-#ifdef CONFIG_BOOT_TIME_MEASUREMENT
-extern u64_t __idle_time_stamp;  /* timestamp when CPU went idle */
-#endif
-
 /**
  *
  * @brief Power save idle routine
@@ -24,9 +20,9 @@ extern u64_t __idle_time_stamp;  /* timestamp when CPU went idle */
  */
 void k_cpu_idle(void)
 {
-	z_sys_trace_idle();
+	sys_trace_idle();
 #if defined(CONFIG_BOOT_TIME_MEASUREMENT)
-	__idle_time_stamp = (u64_t)k_cycle_get_32();
+	__idle_time_stamp = k_cycle_get_32();
 #endif
 
 	__asm__ volatile (
@@ -54,7 +50,7 @@ void k_cpu_idle(void)
 
 void k_cpu_atomic_idle(unsigned int key)
 {
-	z_sys_trace_idle();
+	sys_trace_idle();
 
 	__asm__ volatile (
 	    "sti\n\t"
