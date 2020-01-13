@@ -28,7 +28,11 @@ struct gpio_pcal9535a_config {
 	/** The slave address of the chip */
 	u16_t i2c_slave_addr;
 
-	u8_t stride[2];
+	/** Interrupt GPIO controller **/
+	const char * const int_gpio_dev_name;
+
+	/** Interrupt GPIO controller **/
+	u8_t int_gpio_pin;
 };
 
 /** Store the port 0/1 data for each register pair. */
@@ -55,9 +59,15 @@ struct gpio_pcal9535a_drv_data {
 		union gpio_pcal9535a_port_data dir;
 		union gpio_pcal9535a_port_data pud_en;
 		union gpio_pcal9535a_port_data pud_sel;
+		union gpio_pcal9535a_port_data int_en;
 	} reg_cache;
 
-	u8_t stride[2];
+	bool supports_interrupts;
+
+	/* port ISR callback routine address */
+	sys_slist_t callbacks;
+	/* pin callback routine enable flags, by pin number */
+	u32_t pin_callback_enables;
 };
 
 #ifdef __cplusplus
