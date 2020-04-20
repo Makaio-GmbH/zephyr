@@ -13,6 +13,9 @@
 #include "spi_flash_w25qxxdv_defs.h"
 #include "spi_flash_w25qxxdv.h"
 #include "flash_priv.h"
+#include <gpio.h>
+#include <logging/log.h>
+LOG_MODULE_REGISTER(w25q, 4);
 
 #if defined(CONFIG_MULTITHREADING)
 #define SYNC_INIT() k_sem_init( \
@@ -29,6 +32,7 @@ static int spi_flash_wb_access(struct spi_flash_data *ctx,
 			       u8_t cmd, bool addressed, off_t offset,
 			       void *data, size_t length, bool write)
 {
+
 	u8_t access[4];
 	struct spi_buf buf[2] = {
 		{
@@ -57,25 +61,39 @@ static int spi_flash_wb_access(struct spi_flash_data *ctx,
 
 	tx.count = length ? 2 : 1;
 
+	int ret_val = 0;
+	LOG_DBG("CS ctrl: %s", log_strdup(DT_INST_0_WINBOND_W25Q16_CS_GPIOS_CONTROLLER));
+	LOG_DBG("CS pin: %u", DT_INST_0_WINBOND_W25Q16_CS_GPIOS_PIN);
+	gpio_pin_configure(device_get_binding(DT_INST_0_WINBOND_W25Q16_CS_GPIOS_CONTROLLER), DT_INST_0_WINBOND_W25Q16_CS_GPIOS_PIN, GPIO_DIR_OUT);
+
+	gpio_pin_write(device_get_binding(DT_INST_0_WINBOND_W25Q16_CS_GPIOS_CONTROLLER), DT_INST_0_WINBOND_W25Q16_CS_GPIOS_PIN, 0);
+	k_busy_wait(100);
+	LOG_DBG("AFter");
+
 	if (!write) {
 		const struct spi_buf_set rx = {
 			.buffers = buf,
 			.count = 2
 		};
 
-		return spi_transceive(ctx->spi, &ctx->spi_cfg, &tx, &rx);
+		ret_val = spi_transceive(ctx->spi, &ctx->spi_cfg, &tx, &rx);
+
+
+		gpio_pin_write(device_get_binding(DT_INST_0_WINBOND_W25Q16_CS_GPIOS_CONTROLLER), DT_INST_0_WINBOND_W25Q16_CS_GPIOS_PIN, 1);
+		return ret_val;
 	}
 
 	return spi_write(ctx->spi, &ctx->spi_cfg, &tx);
 }
 
-static inline int spi_flash_wb_id(struct device *dev)
+ int spi_flash_wb_id(struct device *dev)
 {
+	LOG_DBG("device: %s", log_strdup(dev->config->name));
 	struct spi_flash_data *const driver_data = dev->driver_data;
 	u32_t temp_data;
 	u8_t buf[3];
 
-	if (spi_flash_wb_access(driver_data, W25QXXDV_CMD_RDID,
+	if (spi_flash_wb_access(driver_data, 0x92,
 				false, 0, buf, 3, false) != 0) {
 		return -EIO;
 	}
@@ -84,9 +102,10 @@ static inline int spi_flash_wb_id(struct device *dev)
 	temp_data |= ((u32_t) buf[1]) << 8;
 	temp_data |= (u32_t) buf[2];
 
-	if (temp_data != CONFIG_SPI_FLASH_W25QXXDV_DEVICE_ID) {
-		return -ENODEV;
-	}
+	LOG_DBG("temp_data: %u", temp_data);
+	LOG_HEXDUMP_DBG(buf, 4, "buff");
+
+
 
 	return 0;
 }
@@ -406,17 +425,19 @@ static int spi_flash_wb_configure(struct device *dev)
 		return -EINVAL;
 	}
 
-	data->spi_cfg.frequency = DT_INST_0_WINBOND_W25Q16_SPI_MAX_FREQUENCY;
+	data->spi_cfg.frequency = 2000000;
 	data->spi_cfg.operation = SPI_WORD_SET(8);
 	data->spi_cfg.slave = DT_INST_0_WINBOND_W25Q16_BASE_ADDRESS;
 
+	LOG_DBG("Init");
 #if defined(CONFIG_SPI_FLASH_W25QXXDV_GPIO_SPI_CS)
 	data->cs_ctrl.gpio_dev = device_get_binding(
 		DT_INST_0_WINBOND_W25Q16_CS_GPIOS_CONTROLLER);
 	if (!data->cs_ctrl.gpio_dev) {
 		return -ENODEV;
 	}
-
+	LOG_DBG("CS ctrl: %s", log_strdup(DT_INST_0_WINBOND_W25Q16_CS_GPIOS_CONTROLLER));
+	LOG_DBG("CS pin: %u", DT_INST_0_WINBOND_W25Q16_CS_GPIOS_PIN);
 	data->cs_ctrl.gpio_pin = DT_INST_0_WINBOND_W25Q16_CS_GPIOS_PIN;
 	data->cs_ctrl.delay = CONFIG_SPI_FLASH_W25QXXDV_GPIO_CS_WAIT_DELAY;
 
@@ -432,7 +453,7 @@ static int spi_flash_init(struct device *dev)
 
 	SYNC_INIT();
 
-	ret = spi_flash_wb_configure(dev);
+	//ret = spi_flash_wb_configure(dev);
 
 #if defined(CONFIG_FLASH_PAGE_LAYOUT)
 	/*
@@ -443,6 +464,10 @@ static int spi_flash_init(struct device *dev)
 	dev_layout.pages_count = (CONFIG_SPI_FLASH_W25QXXDV_FLASH_SIZE / W25QXXDV_SECTOR_SIZE);
 	dev_layout.pages_size = W25QXXDV_SECTOR_SIZE;
 #endif
+
+	LOG_DBG("w25q init ret: %d", ret);
+
+	//spi_flash_wb_reg_write(dev, 0xAB);
 
 	return ret;
 }

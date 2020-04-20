@@ -99,6 +99,10 @@ extern "C" {
  * during initialization.
  */
 #ifndef CONFIG_DEVICE_POWER_MANAGEMENT
+/*
+ * //#ifdef CONFIG_APPLICATION_CONTROLLED_DRIVER_PRIORITY
+//		.config_info = (cfg_info)				  \
+ */
 #define DEVICE_AND_API_INIT(dev_name, drv_name, init_fn, data, cfg_info,  \
 			    level, prio, api)				  \
 	static struct device_config _CONCAT(__config_, dev_name) __used	  \
@@ -262,6 +266,9 @@ struct device_config {
 	struct device_pm *pm;
 #endif
 	const void *config_info;
+#ifdef CONFIG_APPLICATION_CONTROLLED_DRIVER_PRIORITY
+	u8_t priority;
+#endif
 };
 
 /**

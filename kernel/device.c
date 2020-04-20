@@ -48,6 +48,10 @@ void z_sys_device_do_config_level(s32_t level)
 
 	for (info = config_levels[level]; info < config_levels[level+1];
 								info++) {
+
+#ifdef CONFIG_APPLICATION_CONTROLLED_DRIVER_PRIORITY
+
+#endif
 		int retval;
 		struct device_config *device_conf = info->config;
 

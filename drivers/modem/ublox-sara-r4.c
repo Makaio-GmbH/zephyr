@@ -5,7 +5,7 @@
  */
 
 #include <logging/log.h>
-LOG_MODULE_REGISTER(modem_ublox_sara_r4, CONFIG_MODEM_LOG_LEVEL);
+LOG_MODULE_REGISTER(modem_ublox_sara_r4, 4);
 
 #include <kernel.h>
 #include <ctype.h>
@@ -622,7 +622,7 @@ static void modem_rx(void)
 static int pin_init(void)
 {
 	LOG_INF("Setting Modem Pins");
-
+return;
 	LOG_DBG("MDM_RESET_PIN -> NOT_ASSERTED");
 	modem_pin_write(&mctx, MDM_RESET, MDM_RESET_NOT_ASSERTED);
 
@@ -694,6 +694,10 @@ static void modem_rssi_query_work(struct k_work *work)
 		MODEM_CMD("+CESQ: ", on_cmd_atcmdinfo_rssi_cesq, 6U, ",");
 	static char *send_cmd = "AT+CESQ";
 #endif
+
+	//struct modem_cmd reply_cmd_cops = MODEM_CMD("+COPS: ", on_cmd_atcmdinfo_rssi_cesq, 4U, ",");
+	//static char send_cmd_cops = "AT+COPS?";
+
 	int ret;
 
 	/* query modem RSSI */
@@ -704,6 +708,8 @@ static void modem_rssi_query_work(struct k_work *work)
 		LOG_ERR("AT+C[E]SQ ret:%d", ret);
 	}
 
+
+
 	/* re-start RSSI query work */
 	if (work) {
 		k_delayed_work_submit_to_queue(&modem_workq,
@@ -712,7 +718,7 @@ static void modem_rssi_query_work(struct k_work *work)
 	}
 }
 
-static void modem_reset(void)
+ void modem_reset(void)
 {
 	int ret = 0, retry_count = 0, counter = 0;
 	static struct setup_cmd setup_cmds[] = {
@@ -724,20 +730,21 @@ static void modem_reset(void)
 		SETUP_CMD_NOHANDLE("AT+CMEE=1"),
 #if defined(CONFIG_BOARD_PARTICLE_BORON)
 		/* use external SIM */
-		SETUP_CMD_NOHANDLE("AT+UGPIOC=23,0,0"),
+		//SETUP_CMD_NOHANDLE("AT+UGPIOC=23,0,0"),
 #endif
 		/* UNC messages for registration */
 		SETUP_CMD_NOHANDLE("AT+CREG=1"),
 		/* HEX receive data mode */
-		SETUP_CMD_NOHANDLE("AT+UDCONF=1,1"),
+		//SETUP_CMD_NOHANDLE("AT+UDCONF=1,1"),
 		/* query modem info */
 		SETUP_CMD("AT+CGMI", "", on_cmd_atcmdinfo_manufacturer, 0U, ""),
 		SETUP_CMD("AT+CGMM", "", on_cmd_atcmdinfo_model, 0U, ""),
 		SETUP_CMD("AT+CGMR", "", on_cmd_atcmdinfo_revision, 0U, ""),
 		SETUP_CMD("AT+CGSN", "", on_cmd_atcmdinfo_imei, 0U, ""),
+		SETUP_CMD_NOHANDLE("AT+QNWCFG=0,0"),
+		SETUP_CMD_NOHANDLE("AT+QSCLK=2"),
 		/* setup PDP context definition */
-		SETUP_CMD_NOHANDLE("AT+CGDCONT=1,\"IP\",\""
-					CONFIG_MODEM_UBLOX_SARA_R4_APN "\""),
+		SETUP_CMD_NOHANDLE("AT+CGDCONT=1,\"IPV4V6\",\"iot.1nce.net\""),
 		/* start functionality */
 		SETUP_CMD_NOHANDLE("AT+CFUN=1"),
 	};
@@ -771,6 +778,7 @@ restart:
 	ret = -1;
 	while (counter++ < 50 && ret < 0) {
 		k_sleep(K_SECONDS(2));
+		LOG_DBG("Sending AT");
 		ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
 				     NULL, 0, "AT", &mdata.sem_response,
 				     MDM_CMD_TIMEOUT);
@@ -797,9 +805,7 @@ restart:
 		/* use manual MCC/MNO entry */
 		ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
 				     NULL, 0,
-				     "AT+COPS=1,2,\""
-					CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO
-					"\"",
+				     "AT+COPS=1,2,\"26201\"",
 				     &mdata.sem_response,
 				     MDM_REGISTRATION_TIMEOUT);
 	} else {
@@ -1248,6 +1254,7 @@ static struct modem_cmd unsol_cmds[] = {
 
 static int modem_init(struct device *dev)
 {
+
 	int ret = 0;
 
 	ARG_UNUSED(dev);
@@ -1324,7 +1331,8 @@ static int modem_init(struct device *dev)
 	/* init RSSI query */
 	k_delayed_work_init(&mdata.rssi_query_work, modem_rssi_query_work);
 
-	modem_reset();
+
+	//modem_reset();
 
 error:
 	return ret;

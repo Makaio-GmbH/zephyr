@@ -610,8 +610,22 @@ config APPLICATION_INIT_PRIORITY
 	  This priority level is for end-user drivers such as sensors and display
 	  which have no inward dependencies.
 
-
 endmenu
+
+
+config APPLICATION_CONTROLLED_DRIVER_STARTUP
+	bool "Allow manual startup of drivers controlled by application"
+	help
+	  Use this to specify a priority for drivers which should not be started
+	  automatically but instead started by application.
+
+config APPLICATION_CONTROLLED_DRIVER_PRIORITY
+	int "Dedicated priority for drivers to be started by application"
+	depends on APPLICATION_CONTROLLED_DRIVER_STARTUP
+	default 255
+	help
+	  Set and use this priority for drivers which won't be started
+	  automatically by the kernel.
 
 menu "Security Options"
 
