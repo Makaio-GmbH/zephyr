@@ -24,7 +24,7 @@
 
 #include "lis2dw12.h"
 
-LOG_MODULE_REGISTER(LIS2DW12, CONFIG_SENSOR_LOG_LEVEL);
+LOG_MODULE_REGISTER(LIS2DW12, 4);
 
 /**
  * lis2dw12_set_range - set full scale range for acc
@@ -67,6 +67,7 @@ static int lis2dw12_set_odr(struct device *dev, u16_t odr)
 
 	/* check if power off */
 	if (odr == 0U) {
+		LOG_DBG("Set power down");
 		return lis2dw12_data_rate_set(lis2dw12->ctx,
 					      LIS2DW12_XL_ODR_OFF);
 	}
@@ -369,6 +370,7 @@ static int lis2dw12_init(struct device *dev)
 #endif /* CONFIG_LIS2DW12_PULSE */
 #endif /* CONFIG_LIS2DW12_TRIGGER */
 
+	lis2dw12_set_odr(lis2dw12->ctx, 0);
 	return 0;
 }
 

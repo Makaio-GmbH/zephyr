@@ -377,7 +377,7 @@ MODEM_CMD_DEFINE(on_cmd_atcmdinfo_rssi_cesq)
 		mctx.data_rssi = -110 + (rxlev - 1);
 		LOG_INF("RSSI: %d", mctx.data_rssi);
 	} else {
-		mctx.data_rssi = -1000;
+		mctx.data_rssi = -120;
 		LOG_INF("RSRP/RSSI not known");
 	}
 
@@ -620,6 +620,11 @@ static int pin_init(void)
 {
 	LOG_INF("Setting Modem Pins");
 
+	k_sleep(K_SECONDS(4));
+	return 0;
+
+	LOG_INF("Setting Modem Pins");
+
 	LOG_DBG("MDM_RESET_PIN -> NOT_ASSERTED");
 	modem_pin_write(&mctx, MDM_RESET, MDM_RESET_NOT_ASSERTED);
 
@@ -709,6 +714,10 @@ static void modem_rssi_query_work(struct k_work *work)
 		LOG_ERR("AT+C[E]SQ ret:%d", ret);
 	}
 
+	ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
+			     &cmd, 1U, send_cmd, &mdata.sem_response,
+			     MDM_CMD_TIMEOUT);
+
 	/* re-start RSSI query work */
 	if (work) {
 		k_delayed_work_submit_to_queue(&modem_workq,
@@ -717,7 +726,7 @@ static void modem_rssi_query_work(struct k_work *work)
 	}
 }
 
-static void modem_reset(void)
+void modem_reset(void)
 {
 	int ret = 0, retry_count = 0, counter = 0;
 	static struct setup_cmd setup_cmds[] = {
@@ -745,25 +754,27 @@ static void modem_reset(void)
 		SETUP_CMD("AT+CGMR", "", on_cmd_atcmdinfo_revision, 0U, ""),
 		SETUP_CMD("AT+CGSN", "", on_cmd_atcmdinfo_imei, 0U, ""),
 		/* setup PDP context definition */
-		SETUP_CMD_NOHANDLE("AT+CGDCONT=1,\"IP\",\""
-					CONFIG_MODEM_UBLOX_SARA_R4_APN "\""),
+		SETUP_CMD_NOHANDLE("AT+CGDCONT=1,\"IPV4V6\",\"iot.1nce.net\""),
+		SETUP_CMD_NOHANDLE("AT+QNWCFG=0,1"),
+		//SETUP_CMD_NOHANDLE("AT+CPSMS=1,,,\"01100001\",\"00000001\""),
+		SETUP_CMD_NOHANDLE("AT+QSCLK=2"),
 		/* start functionality */
 		SETUP_CMD_NOHANDLE("AT+CFUN=1"),
 	};
 
 	static struct setup_cmd post_setup_cmds[] = {
-#if defined(CONFIG_MODEM_UBLOX_SARA_U2)
-		/* set the APN */
-		SETUP_CMD_NOHANDLE("AT+UPSD=0,1,\""
-				CONFIG_MODEM_UBLOX_SARA_R4_APN "\""),
-		/* set dynamic IP */
-		SETUP_CMD_NOHANDLE("AT+UPSD=0,7,\"0.0.0.0\""),
-		/* activate the GPRS connection */
-		SETUP_CMD_NOHANDLE("AT+UPSDA=0,3"),
-#else
-		/* activate the PDP context */
-		SETUP_CMD_NOHANDLE("AT+CGACT=1,1"),
-#endif
+//#if defined(CONFIG_MODEM_UBLOX_SARA_U2)
+//		/* set the APN */
+//		SETUP_CMD_NOHANDLE("AT+UPSD=0,1,\""
+//				CONFIG_MODEM_UBLOX_SARA_R4_APN "\""),
+//		/* set dynamic IP */
+//		SETUP_CMD_NOHANDLE("AT+UPSD=0,7,\"0.0.0.0\""),
+//		/* activate the GPRS connection */
+//		SETUP_CMD_NOHANDLE("AT+UPSDA=0,3"),
+//#else
+//		/* activate the PDP context */
+//		SETUP_CMD_NOHANDLE("AT+CGACT=1,1"),
+//#endif
 	};
 
 restart:
@@ -801,23 +812,31 @@ restart:
 		goto error;
 	}
 
+	/*
 
-	if (strlen(CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO) > 0) {
-		/* use manual MCC/MNO entry */
-		ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
-				     NULL, 0,
-				     "AT+COPS=1,2,\""
-					CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO
-					"\"",
-				     &mdata.sem_response,
-				     MDM_REGISTRATION_TIMEOUT);
-	} else {
-		/* register operator automatically */
-		ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
-				     NULL, 0, "AT+COPS=0,0",
-				     &mdata.sem_response,
-				     MDM_REGISTRATION_TIMEOUT);
-	}
+//	if (strlen(CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO) > 0) {
+//		/* use manual MCC/MNO entry */
+//		ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
+//				     NULL, 0,
+//				     "AT+COPS=1,2,\""
+//					CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO
+//					"\"",
+//				     &mdata.sem_response,
+//				     MDM_REGISTRATION_TIMEOUT);
+//	} else {
+//		/* register operator automatically */
+//		ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
+//				     NULL, 0, "AT+COPS=0,0",
+//				     &mdata.sem_response,
+//				     MDM_REGISTRATION_TIMEOUT);
+//	}*/
+
+
+ret = modem_cmd_send(&mctx.iface, &mctx.cmd_handler,
+		     NULL, 0,
+		     "AT+COPS=1,2,\"26201\"",
+		     &mdata.sem_response,
+		     MDM_REGISTRATION_TIMEOUT);
 
 	if (ret < 0) {
 		LOG_ERR("AT+COPS ret:%d", ret);
@@ -1518,7 +1537,7 @@ static int modem_init(struct device *dev)
 	/* init RSSI query */
 	k_delayed_work_init(&mdata.rssi_query_work, modem_rssi_query_work);
 
-	modem_reset();
+	//modem_reset();
 
 error:
 	return ret;

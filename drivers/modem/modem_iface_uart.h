@@ -61,6 +61,29 @@ int modem_iface_uart_init(struct modem_iface *iface,
 			  struct modem_iface_uart_data *data,
 			  const char *dev_name);
 
+/**
+ * @brief  Disable UART IRQ(s) to allow sleep
+ *
+ * @param  *iface: modem interface to allow to sleep.
+ * @param  *dev_name: name of the UART device to use
+ *
+ * @retval 0 if ok, < 0 if error.
+ */
+int modem_iface_uart_sleep(struct modem_iface *iface,
+							  const char *dev_name);
+
+/**
+ * @brief  Enable UART IRQ(s) in active mode
+ *
+ * @param  *iface: modem interface to wake.
+ * @param  *dev_name: name of the UART device to use
+ *
+ * @retval 0 if ok, < 0 if error.
+ */
+int modem_iface_uart_wake(struct modem_iface *iface,
+						   const char *dev_name);
+
+
 #ifdef __cplusplus
 }
 #endif

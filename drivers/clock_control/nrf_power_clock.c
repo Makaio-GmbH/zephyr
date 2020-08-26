@@ -12,12 +12,13 @@
 #include <logging/log.h>
 #include <hal/nrf_power.h>
 
-LOG_MODULE_REGISTER(clock_control, CONFIG_CLOCK_CONTROL_LOG_LEVEL);
+LOG_MODULE_REGISTER(clock_control, 3);
 
 #define DT_DRV_COMPAT nordic_nrf_clock
 
 /* Helper logging macros which prepends subsys name to the log. */
 #ifdef CONFIG_LOG
+
 #define CLOCK_LOG(lvl, dev, subsys, ...) \
 	LOG_##lvl("%s: " GET_ARG1(__VA_ARGS__), \
 		get_sub_config(dev, (enum clock_control_nrf_type)subsys)->name \

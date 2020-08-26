@@ -101,6 +101,8 @@ struct modem_cmd_handler_data {
 	/* locks */
 	struct k_sem sem_tx_lock;
 	struct k_sem sem_parse_lock;
+
+	bool ignore_ok;
 };
 
 /**
@@ -170,6 +172,11 @@ int modem_cmd_send(struct modem_iface *iface,
 		   struct modem_cmd_handler *handler,
 		   struct modem_cmd *handler_cmds, size_t handler_cmds_len,
 		   const u8_t *buf, struct k_sem *sem, int timeout);
+
+int modem_cmd_send_skip_okay(struct modem_iface *iface,
+							 struct modem_cmd_handler *handler,
+							 struct modem_cmd *handler_cmds, size_t handler_cmds_len,
+							 const u8_t *buf, struct k_sem *sem, int timeout);
 
 /**
  * @brief  send a series of AT commands

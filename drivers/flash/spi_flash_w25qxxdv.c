@@ -15,6 +15,7 @@
 #include "spi_flash_w25qxxdv_defs.h"
 #include "spi_flash_w25qxxdv.h"
 #include "flash_priv.h"
+#include <logging/log.h>
 
 #if defined(CONFIG_MULTITHREADING)
 #define SYNC_INIT() k_sem_init( \
@@ -26,7 +27,7 @@
 #define SYNC_LOCK()
 #define SYNC_UNLOCK()
 #endif
-
+LOG_MODULE_REGISTER(w25q, 4);
 static int spi_flash_wb_access(struct spi_flash_data *ctx,
 			       u8_t cmd, bool addressed, off_t offset,
 			       void *data, size_t length, bool write)
@@ -86,7 +87,22 @@ static inline int spi_flash_wb_id(struct device *dev)
 	temp_data |= ((u32_t) buf[1]) << 8;
 	temp_data |= (u32_t) buf[2];
 
+	u8_t buf2[1];
+	const struct spi_buf tx_buf = {
+		.buf = buf2,
+		.len = 1
+	};
+	const struct spi_buf_set tx = {
+		.buffers = &tx_buf,
+		.count = 1
+	};
+
+	buf2[0] = 0xB9;
+
+	spi_write(driver_data->spi, &driver_data->spi_cfg, &tx);
+
 	if (temp_data != CONFIG_SPI_FLASH_W25QXXDV_DEVICE_ID) {
+		LOG_ERR("W25Q not found");
 		return -ENODEV;
 	}
 
@@ -233,6 +249,7 @@ static int spi_flash_wb_write(struct device *dev, off_t offset,
 	 * between pages as in case the user did not disable protection then
 	 * it will fail on the first write.
 	 */
+
 	while ((page_offset + len) >
 			CONFIG_SPI_FLASH_W25QXXDV_PAGE_PROGRAM_SIZE) {
 		size_t len_to_write_in_page =

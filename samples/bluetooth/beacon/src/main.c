@@ -27,12 +27,27 @@ static const struct bt_data ad[] = {
 	BT_DATA_BYTES(BT_DATA_UUID16_ALL, 0xaa, 0xfe),
 	BT_DATA_BYTES(BT_DATA_SVC_DATA16,
 		      0xaa, 0xfe, /* Eddystone UUID */
-		      0x10, /* Eddystone-URL frame type */
+		      0x00, /* Eddystone-UID frame type */
 		      0x00, /* Calibrated Tx power at 0m */
-		      0x00, /* URL Scheme Prefix http://www. */
-		      'z', 'e', 'p', 'h', 'y', 'r',
-		      'p', 'r', 'o', 'j', 'e', 'c', 't',
-		      0x08) /* .org */
+		      0x00, /* uid group start */
+		      0x01,
+		      0x02,
+		      0x03,
+		      0x04,
+		      0x05,
+		      0x06,
+		      0x07,
+		      0x08,
+		      0x09,
+		      0x00, /* uid instance start */
+		      0x0A,
+		      0x0B,
+		      0x0C,
+		      0x0D,
+		      0x0e,
+		      /* reserved */
+
+		      )
 };
 
 /* Set Scan Response data */

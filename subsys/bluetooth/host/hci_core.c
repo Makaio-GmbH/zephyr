@@ -7265,6 +7265,7 @@ int bt_le_adv_start_legacy(const struct bt_le_adv_param *param,
 			   const struct bt_data *ad, size_t ad_len,
 			   const struct bt_data *sd, size_t sd_len)
 {
+	BT_ERR("bt_le_adv_start_legacy");
 	struct bt_hci_cp_le_set_adv_param set_param;
 	struct bt_conn *conn = NULL;
 	struct net_buf *buf;
@@ -7553,6 +7554,7 @@ int bt_le_adv_start_ext(struct bt_le_ext_adv *adv,
 	}
 
 	if (atomic_test_bit(bt_dev.flags, BT_DEV_ADVERTISING)) {
+		BT_ERR("bt_le_adv_start_ext");
 		return -EALREADY;
 	}
 
@@ -7628,6 +7630,7 @@ int bt_le_adv_start(const struct bt_le_adv_param *param,
 		if (!adv) {
 			return -ENOMEM;
 		}
+
 
 		err = bt_le_adv_start_ext(adv, param, ad, ad_len, sd, sd_len);
 		if (err) {
@@ -8404,6 +8407,7 @@ static int write_scan_enable(u8_t scan)
 
 int bt_br_set_connectable(bool enable)
 {
+	BT_ERR("bt_br_set_connectable");
 	if (enable) {
 		if (atomic_test_bit(bt_dev.flags, BT_DEV_PSCAN)) {
 			return -EALREADY;

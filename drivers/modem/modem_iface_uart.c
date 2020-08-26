@@ -103,6 +103,34 @@ static int modem_iface_uart_read(struct modem_iface *iface,
 	return 0;
 }
 
+int modem_iface_uart_sleep(struct modem_iface *iface,
+							  const char *dev_name)
+{
+	/* get UART device modem_iface_uart_sleep*/
+	iface->dev = device_get_binding(dev_name);
+	if (!iface->dev) {
+		return -ENODEV;
+	}
+
+	uart_irq_rx_disable(iface->dev);
+
+	return 0;
+}
+
+int modem_iface_uart_wake(struct modem_iface *iface,
+						   const char *dev_name)
+{
+	/* get UART device */
+	iface->dev = device_get_binding(dev_name);
+	if (!iface->dev) {
+		return -ENODEV;
+	}
+
+	uart_irq_rx_enable(iface->dev);
+
+	return 0;
+}
+
 static int modem_iface_uart_write(struct modem_iface *iface,
 				  const u8_t *buf, size_t size)
 {
