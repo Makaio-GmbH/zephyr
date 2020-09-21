@@ -132,7 +132,7 @@ static int parse_params(struct modem_cmd_handler_data *data,  size_t match_len,
 				break;
 			}
 		}
-
+/*
 		if (count >= cmd->arg_count) {
 			break;
 		}
@@ -140,7 +140,7 @@ static int parse_params(struct modem_cmd_handler_data *data,  size_t match_len,
 		if (*argc == argv_len) {
 			break;
 		}
-
+*/
 		end++;
 	}
 
@@ -210,21 +210,23 @@ static int process_cmd(struct modem_cmd *cmd, size_t match_len,
  * - response handlers[0]
  * - unsolicited handlers[1]
  * - current assigned handlers[2]
+ * prefer currently assigned handlers
  */
 static struct modem_cmd *find_cmd_match(struct modem_cmd_handler_data *data)
 {
 	int j, i;
 
-	for (j = 0; j < ARRAY_SIZE(data->cmds); j++) {
+	for (j = ARRAY_SIZE(data->cmds)-1; j >= 0; j--) {
 		if (!data->cmds[j] || data->cmds_len[j] == 0U) {
 			continue;
 		}
 
 		for (i = 0; i < data->cmds_len[j]; i++) {
+
 			/* match on "empty" cmd */
 			if (strlen(data->cmds[j][i].cmd) == 0 ||
 			    strncmp(data->match_buf, data->cmds[j][i].cmd,
-				    data->cmds[j][i].cmd_len) == 0) {
+				    data->cmds[j][i].cmd_len-1) == 0) { /* ignore tailing \0 */
 				return &data->cmds[j][i];
 			}
 		}
@@ -451,12 +453,14 @@ static int _modem_cmd_send(struct modem_iface *iface,
 	}
 
 	data = (struct modem_cmd_handler_data *)(handler->cmd_handler_data);
+
 	if (!no_tx_lock) {
 		k_sem_take(&data->sem_tx_lock, K_FOREVER);
 	}
 
 	ret = modem_cmd_handler_update_cmds(data, handler_cmds,
 					    handler_cmds_len, true);
+
 	if (ret < 0) {
 		goto exit;
 	}
@@ -475,7 +479,9 @@ static int _modem_cmd_send(struct modem_iface *iface,
 		LOG_DBG("EOL not set!!!");
 	}
 #endif
+
 	iface->write(iface, buf, strlen(buf));
+
 	iface->write(iface, data->eol, data->eol_len);
 
 	if (K_TIMEOUT_EQ(timeout, K_NO_WAIT)) {
@@ -484,6 +490,8 @@ static int _modem_cmd_send(struct modem_iface *iface,
 	}
 
 	if (!sem) {
+		printk("err12");
+
 		ret = -EINVAL;
 		goto exit;
 	}
@@ -568,7 +576,7 @@ int modem_cmd_handler_init(struct modem_cmd_handler *handler,
 	}
 
 	if (!data->read_buf_len || !data->match_buf_len) {
-		return -EINVAL;
+		return -ENOMEM;
 	}
 
 	if (data->eol == NULL) {

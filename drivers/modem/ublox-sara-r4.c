@@ -34,31 +34,18 @@ LOG_MODULE_REGISTER(modem_ublox_sara_r4, CONFIG_MODEM_LOG_LEVEL);
 #define CONFIG_MODEM_UBLOX_SARA_R4_MANUAL_MCCMNO ""
 #endif
 
-/* pin settings */
-enum mdm_control_pins {
-	MDM_POWER = 0,
-	MDM_RESET,
+MODEM_CREATE_PIN(0, mdm_power_gpios, power, GPIO_OUTPUT)
+MODEM_CREATE_PIN(0, mdm_reset_gpios, reset, GPIO_OUTPUT)
+
 #if DT_INST_NODE_HAS_PROP(0, mdm_vint_gpios)
-	MDM_VINT,
+MODEM_CREATE_PIN(0, mdm_vint_gpios, vint, GPIO_OUTPUT)
 #endif
-};
 
-static struct modem_pin modem_pins[] = {
-	/* MDM_POWER */
-	MODEM_PIN(DT_INST_GPIO_LABEL(0, mdm_power_gpios),
-		  DT_INST_GPIO_PIN(0, mdm_power_gpios),
-		  DT_INST_GPIO_FLAGS(0, mdm_power_gpios) | GPIO_OUTPUT),
-
-	/* MDM_RESET */
-	MODEM_PIN(DT_INST_GPIO_LABEL(0, mdm_reset_gpios),
-		  DT_INST_GPIO_PIN(0, mdm_reset_gpios),
-		  DT_INST_GPIO_FLAGS(0, mdm_reset_gpios) | GPIO_OUTPUT),
-
+static struct modem_pins pins = {
+	.power = &pin_power_0,
+	.reset = &pin_reset_0
 #if DT_INST_NODE_HAS_PROP(0, mdm_vint_gpios)
-	/* MDM_VINT */
-	MODEM_PIN(DT_INST_GPIO_LABEL(0, mdm_vint_gpios),
-		  DT_INST_GPIO_PIN(0, mdm_vint_gpios),
-		  DT_INST_GPIO_FLAGS(0, mdm_vint_gpios) | GPIO_INPUT),
+	.vint = &pin_vint_0,
 #endif
 };
 
@@ -554,7 +541,7 @@ MODEM_CMD_DEFINE(on_cmd_sockcreate)
 	sock = modem_socket_from_newid(&mdata.socket_config);
 	if (sock) {
 		sock->id = ATOI(argv[0],
-				mdata.socket_config.base_socket_num - 1,
+				mdata.socket_config.base_socreate_socketcket_num - 1,
 				"socket_id");
 		/* on error give up modem socket */
 		if (sock->id == mdata.socket_config.base_socket_num - 1) {

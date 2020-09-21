@@ -908,17 +908,21 @@ error:
 
 static void autohandler(struct k_work *work)
 {
+
+
 	switch (updatehub_probe()) {
 	case UPDATEHUB_UNCONFIRMED_IMAGE:
 		LOG_ERR("Image is unconfirmed. Rebooting to revert back to previous"
 			"confirmed image.");
-
+		k_sleep(K_SECONDS(5));
 		sys_reboot(SYS_REBOOT_WARM);
 		break;
 
 	case UPDATEHUB_HAS_UPDATE:
 		switch (updatehub_update()) {
 		case UPDATEHUB_OK:
+			LOG_WRN("Rebooting after update");
+			k_sleep(K_SECONDS(5));
 			sys_reboot(SYS_REBOOT_WARM);
 			break;
 

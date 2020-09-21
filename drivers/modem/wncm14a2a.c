@@ -1061,7 +1061,7 @@ static void wncm14a2a_read_rx(struct net_buf **buf)
 	uint8_t uart_buffer[MDM_RECV_BUF_SIZE];
 	size_t bytes_read = 0;
 	int ret;
-	uint16_t rx_len;
+	uint16_t rx_len;f
 
 	/* read all of the data from mdm_receiver */
 	while (true) {

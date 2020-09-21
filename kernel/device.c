@@ -8,7 +8,7 @@
 #include <device.h>
 #include <sys/atomic.h>
 #include <syscall_handler.h>
-
+#include <sys/printk.h>
 extern const struct init_entry __init_start[];
 extern const struct init_entry __init_PRE_KERNEL_1_start[];
 extern const struct init_entry __init_PRE_KERNEL_2_start[];

@@ -259,11 +259,16 @@ static void bt_ready(void)
 		settings_load();
 	}
 
-	err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
-	if (err) {
-		printk("Advertising failed to start (err %d)\n", err);
-		return;
+	for(uint8_t i = 0; i < 2; i++)
+	{
+		err = bt_le_adv_start(BT_LE_ADV_CONN_NAME, ad, ARRAY_SIZE(ad), NULL, 0);
+		if (err) {
+			printk("Advertising failed to start (err %d)\n", err);
+			return;
+		}
+		k_sleep(K_SECONDS(1));
 	}
+
 
 	printk("Advertising successfully started\n");
 }

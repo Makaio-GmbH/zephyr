@@ -123,6 +123,42 @@ static int modem_iface_uart_write(struct modem_iface *iface,
 	return 0;
 }
 
+int modem_iface_uart_sleep(struct modem_iface *iface,
+						   const char *dev_name)
+{
+	/* get UART device modem_iface_uart_sleep*/
+	iface->dev = device_get_binding(dev_name);
+	if (!iface->dev) {
+		return -ENODEV;
+	}
+
+	uart_irq_rx_disable(iface->dev);
+
+	return 0;
+}
+
+int modem_iface_uart_wake(struct modem_iface *iface,
+						  const char *dev_name)
+{
+
+	/* get UART device */
+	iface->dev = device_get_binding(dev_name);
+	if (!iface->dev) {
+		return -ENODEV;
+	}
+
+	//uint8_t c;
+	/* Drain the fifo */
+	/*while (uart_irq_rx_ready(iface->dev)) {
+		uart_fifo_read(iface->dev, &c, 1);
+	}*/
+	modem_iface_uart_flush(iface);
+
+	uart_irq_rx_enable(iface->dev);
+
+	return 0;
+}
+
 int modem_iface_uart_init_dev(struct modem_iface *iface,
 			      const char *dev_name)
 {
@@ -136,7 +172,7 @@ int modem_iface_uart_init_dev(struct modem_iface *iface,
 	uart_irq_tx_disable(iface->dev);
 	modem_iface_uart_flush(iface);
 	uart_irq_callback_set(iface->dev, modem_iface_uart_isr);
-	uart_irq_rx_enable(iface->dev);
+// FIXME	uart_irq_rx_enable(iface->dev);
 
 	return 0;
 }
@@ -148,6 +184,7 @@ int modem_iface_uart_init(struct modem_iface *iface,
 	int ret;
 
 	if (!iface || !data) {
+		LOG_ERR("iface or data null");
 		return -EINVAL;
 	}
 
@@ -160,6 +197,7 @@ int modem_iface_uart_init(struct modem_iface *iface,
 
 	/* get UART device */
 	ret = modem_iface_uart_init_dev(iface, dev_name);
+
 	if (ret < 0) {
 		iface->iface_data = NULL;
 		iface->read = NULL;

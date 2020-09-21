@@ -30,6 +30,23 @@ extern "C" {
 	.init_flags = flags_ \
 }
 
+#define MODEM_CREATE_PIN(inst, prop, pin_type, flags) \
+	static struct modem_pin _CONCAT(pin_##pin_type,_##inst) = MODEM_PIN(DT_INST_GPIO_LABEL(inst, prop), \
+		DT_INST_GPIO_PIN(inst, prop), \
+		DT_INST_GPIO_FLAGS(inst, prop) | flags);
+
+
+#define MODEM_PIN_INIT(pins, name_) { \
+	if(pins->name_ != NULL) \
+	{ \
+		pins->name_->gpio_port_dev = device_get_binding(pins->name_->dev_name); \
+		ret = modem_pin_config(pins->name_, true); \
+		if (ret < 0) { \
+			return ret; \
+		} \
+	} \
+}
+
 struct modem_iface {
 	struct device *dev;
 
@@ -56,6 +73,13 @@ struct modem_pin {
 	gpio_flags_t init_flags;
 };
 
+struct modem_pins {
+	struct modem_pin* power;
+	struct modem_pin* reset;
+	struct modem_pin* vint;
+	struct modem_pin* wake;
+};
+
 struct modem_context {
 	/* modem data */
 	char *data_manufacturer;
@@ -69,8 +93,7 @@ struct modem_context {
 	int   data_rssi;
 
 	/* pin config */
-	struct modem_pin *pins;
-	size_t pins_len;
+	struct modem_pins *pins;
 
 	/* interface config */
 	struct modem_iface iface;
@@ -131,10 +154,10 @@ struct modem_context *modem_context_from_iface_dev(struct device *dev);
 int modem_context_register(struct modem_context *ctx);
 
 /* pin config functions */
-int modem_pin_read(struct modem_context *ctx, uint32_t pin);
-int modem_pin_write(struct modem_context *ctx, uint32_t pin, uint32_t value);
-int modem_pin_config(struct modem_context *ctx, uint32_t pin, bool enable);
-int modem_pin_init(struct modem_context *ctx);
+int modem_pin_read(struct modem_pin* mpin);
+int modem_pin_write(struct modem_pin* mpin, uint32_t value);
+int modem_pin_config(struct modem_pin* mpin, bool enable);
+int modem_pins_init(struct modem_context *ctx);
 
 #ifdef __cplusplus
 }

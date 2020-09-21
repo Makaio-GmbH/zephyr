@@ -128,7 +128,7 @@ toolchain_cc_optimize_for_debug_flag(OPTIMIZE_FOR_DEBUG_FLAG)
 toolchain_cc_optimize_for_speed_flag(OPTIMIZE_FOR_SPEED_FLAG)
 toolchain_cc_optimize_for_size_flag(OPTIMIZE_FOR_SIZE_FLAG)
 
-# From kconfig choice, pick the actual OPTIMIZATION_FLAG to use.
+# From kconfig choice, pick the actual  to use.
 # Kconfig choice ensures only one of these CONFIG_*_OPTIMIZATIONS is set.
 if(CONFIG_NO_OPTIMIZATIONS)
   set(OPTIMIZATION_FLAG ${OPTIMIZE_FOR_NO_OPTIMIZATIONS_FLAG})

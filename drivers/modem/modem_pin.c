@@ -16,55 +16,49 @@
 
 #include "modem_context.h"
 
-int modem_pin_read(struct modem_context *ctx, uint32_t pin)
+int modem_pin_read(struct modem_pin* mpin)
 {
-	if (pin >= ctx->pins_len) {
+	if (mpin == NULL) {
 		return -ENODEV;
 	}
 
-	return gpio_pin_get(ctx->pins[pin].gpio_port_dev,
-				ctx->pins[pin].pin);
+	return gpio_pin_get(mpin->gpio_port_dev,
+						mpin->pin);
 }
 
-int modem_pin_write(struct modem_context *ctx, uint32_t pin, uint32_t value)
+int modem_pin_write(struct modem_pin* mpin, uint32_t value)
 {
-	if (pin >= ctx->pins_len) {
+	if (mpin == NULL) {
 		return -ENODEV;
 	}
 
-	return gpio_pin_set(ctx->pins[pin].gpio_port_dev,
-				ctx->pins[pin].pin, value);
+	return gpio_pin_set(mpin->gpio_port_dev,
+						mpin->pin, value);
 }
 
-int modem_pin_config(struct modem_context *ctx, uint32_t pin, bool enable)
+int modem_pin_config(struct modem_pin* mpin, bool enable)
 {
-	if (pin >= ctx->pins_len) {
+
+
+	if (mpin == NULL) {
 		return -ENODEV;
 	}
 
-	return gpio_pin_configure(ctx->pins[pin].gpio_port_dev,
-				  ctx->pins[pin].pin,
-				  enable ? ctx->pins[pin].init_flags :
+	return gpio_pin_configure(mpin->gpio_port_dev,
+							  mpin->pin,
+				  enable ? mpin->init_flags :
 					   GPIO_INPUT);
 }
 
-int modem_pin_init(struct modem_context *ctx)
+int modem_pins_init(struct modem_context *ctx)
 {
-	int i, ret;
+	struct modem_pins *pins = ctx->pins;
+	int ret;
 
-	/* setup port devices and pin directions */
-	for (i = 0; i < ctx->pins_len; i++) {
-		ctx->pins[i].gpio_port_dev =
-				device_get_binding(ctx->pins[i].dev_name);
-		if (!ctx->pins[i].gpio_port_dev) {
-			return -ENODEV;
-		}
-
-		ret = modem_pin_config(ctx, i, true);
-		if (ret < 0) {
-			return ret;
-		}
-	}
+	MODEM_PIN_INIT(pins, power);
+	MODEM_PIN_INIT(pins, reset);
+	MODEM_PIN_INIT(pins, vint);
+	MODEM_PIN_INIT(pins, wake);
 
 	return 0;
 }

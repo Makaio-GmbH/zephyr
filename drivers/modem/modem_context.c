@@ -122,7 +122,7 @@ int modem_context_register(struct modem_context *ctx)
 		return ret;
 	}
 
-	ret = modem_pin_init(ctx);
+	ret = modem_pins_init(ctx);
 	if (ret < 0) {
 		LOG_ERR("modem pin init error: %d", ret);
 		return ret;
