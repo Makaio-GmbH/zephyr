@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <toolchain.h>
 #include <arch/x86/multiboot.h>
 #include <sys/util.h>
 #include <arch/x86/msr.h>
@@ -11,16 +12,6 @@
 #include <drivers/interrupt_controller/loapic.h>
 #include <arch/cpu.h>
 #include <sys/mem_manage.h>
-
-.macro read_tsc var_name
-	push %rax
-	push %rdx
-	rdtsc
-	mov %eax,\var_name
-	mov %edx,\var_name+4
-	pop %rdx
-	pop %rax
-.endm
 
 /*
  * Definitions/macros for enabling paging
@@ -49,7 +40,7 @@
 	clts
 
 	/* Page tables created at build time by gen_mmu.py */
-	movl $Z_MEM_PHYS_ADDR(z_x86_kernel_ptables), %eax
+	movl $z_x86_kernel_ptables, %eax
 	movl %eax, %cr3
 
 	set_efer
@@ -70,7 +61,7 @@
 	movq %rax, %cr4
 	clts
 
-	movq $Z_MEM_PHYS_ADDR(z_x86_kernel_ptables), %rax
+	movq $z_x86_kernel_ptables, %rax
 	movq %rax, %cr3
 
 	set_efer
@@ -213,8 +204,9 @@ enter_code64:
 #ifdef CONFIG_INIT_STACKS
 	movq $0xAAAAAAAAAAAAAAAA, %rax
 	movq %rsp, %rdi
-	subq $CONFIG_ISR_STACK_SIZE, %rdi
-	movq $(CONFIG_ISR_STACK_SIZE >> 3), %rcx
+	subq __x86_cpuboot_t_stack_size_OFFSET(%rbp), %rdi
+	movq __x86_cpuboot_t_stack_size_OFFSET(%rbp), %rcx
+	shr $3, %rcx /* moving 8 bytes a time, so fewer repeats */
 	rep stosq
 #endif
 
@@ -287,10 +279,6 @@ mxcsr:	.long X86_MXCSR_SANE
 
 .globl z_x86_switch
 z_x86_switch:
-#ifdef CONFIG_EXECUTION_BENCHMARKING
-	read_tsc arch_timing_swap_start
-#endif
-
 	/* RSI contains the switch_handle field to which we are
 	 * notionally supposed to store.  Offset it to get back to the
 	 * thread handle instead.
@@ -415,16 +403,11 @@ __resume:
 	lfence
 #endif /* CONFIG_X86_BOUNDS_CHECK_BYPASS_MITIGATION */
 
-#ifdef CONFIG_EXECUTION_BENCHMARKING
-	cmp $0x1,arch_timing_value_swap_end
-	jne time_read_not_needed
-	movw $0x2,arch_timing_value_swap_end
-	read_tsc arch_timing_value_swap_common
-	pushq arch_timing_swap_start
-	popq arch_timing_value_swap_temp
-time_read_not_needed:
+#ifdef CONFIG_TRACING
+	pushq %rdi
+	call sys_trace_thread_switched_in
+	popq %rdi
 #endif
-
 	iretq
 
 
@@ -592,10 +575,6 @@ EXCEPT(Z_X86_OOPS_VECTOR);
 .globl x86_irq_args	/* .. for these definitions */
 
 irq:
-#ifdef CONFIG_EXECUTION_BENCHMARKING
-	read_tsc arch_timing_irq_start
-#endif
-
 	pushq %rsi
 
 #ifdef CONFIG_USERSPACE
@@ -711,10 +690,6 @@ irq_enter_unnested: /* Not nested: dump state to thread struct for __resume */
 #endif
 
 irq_dispatch:
-#ifdef CONFIG_EXECUTION_BENCHMARKING
-	read_tsc arch_timing_irq_end
-#endif
-
 	movq x86_irq_funcs(,%rcx,8), %rbx
 	movq x86_irq_args(,%rcx,8), %rdi
 	call *%rbx
@@ -726,7 +701,7 @@ irq_dispatch:
 	wrmsr
 #else /* xAPIC */
 	movq z_loapic_regs, %rdx
-	movq %rax, LOAPIC_EOI(%rdx)
+	movl %eax, LOAPIC_EOI(%rdx)
 #endif /* CONFIG_X2APIC */
 
 	movq %gs:__x86_tss64_t_cpu_OFFSET, %rsi

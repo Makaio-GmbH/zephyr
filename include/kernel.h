@@ -227,7 +227,7 @@ struct z_object_assignment {
  *
  * @param obj Address of the kernel object
  */
-void z_object_init(void *obj);
+void z_object_init(const void *obj);
 #else
 /* LCOV_EXCL_START */
 #define K_THREAD_ACCESS_GRANT(thread, ...)
@@ -235,7 +235,7 @@ void z_object_init(void *obj);
 /**
  * @internal
  */
-static inline void z_object_init(void *obj)
+static inline void z_object_init(const void *obj)
 {
 	ARG_UNUSED(obj);
 }
@@ -243,8 +243,8 @@ static inline void z_object_init(void *obj)
 /**
  * @internal
  */
-static inline void z_impl_k_object_access_grant(void *object,
-					       struct k_thread *thread)
+static inline void z_impl_k_object_access_grant(const void *object,
+						struct k_thread *thread)
 {
 	ARG_UNUSED(object);
 	ARG_UNUSED(thread);
@@ -253,7 +253,7 @@ static inline void z_impl_k_object_access_grant(void *object,
 /**
  * @internal
  */
-static inline void k_object_access_revoke(void *object,
+static inline void k_object_access_revoke(const void *object,
 					  struct k_thread *thread)
 {
 	ARG_UNUSED(object);
@@ -263,12 +263,12 @@ static inline void k_object_access_revoke(void *object,
 /**
  * @internal
  */
-static inline void z_impl_k_object_release(void *object)
+static inline void z_impl_k_object_release(const void *object)
 {
 	ARG_UNUSED(object);
 }
 
-static inline void k_object_access_all_grant(void *object)
+static inline void k_object_access_all_grant(const void *object)
 {
 	ARG_UNUSED(object);
 }
@@ -285,7 +285,8 @@ static inline void k_object_access_all_grant(void *object)
  * @param object Address of kernel object
  * @param thread Thread to grant access to the object
  */
-__syscall void k_object_access_grant(void *object, struct k_thread *thread);
+__syscall void k_object_access_grant(const void *object,
+				     struct k_thread *thread);
 
 /**
  * Revoke a thread's access to a kernel object
@@ -297,7 +298,7 @@ __syscall void k_object_access_grant(void *object, struct k_thread *thread);
  * @param object Address of kernel object
  * @param thread Thread to remove access to the object
  */
-void k_object_access_revoke(void *object, struct k_thread *thread);
+void k_object_access_revoke(const void *object, struct k_thread *thread);
 
 /**
  * @brief Release an object
@@ -308,7 +309,7 @@ void k_object_access_revoke(void *object, struct k_thread *thread);
  * @param object The object to be released
  *
  */
-__syscall void k_object_release(void *object);
+__syscall void k_object_release(const void *object);
 
 /**
  * Grant all present and future threads access to an object
@@ -327,7 +328,7 @@ __syscall void k_object_release(void *object);
  *
  * @param object Address of kernel object
  */
-void k_object_access_all_grant(void *object);
+void k_object_access_all_grant(const void *object);
 
 /**
  * Allocate a kernel object of a designated type
@@ -669,7 +670,7 @@ typedef void (*k_thread_user_cb_t)(const struct k_thread *thread,
  * @param user_cb Pointer to the user callback function.
  * @param user_data Pointer to user data.
  *
- * @note CONFIG_THREAD_MONITOR must be set for this function
+ * @note @option{CONFIG_THREAD_MONITOR} must be set for this function
  * to be effective.
  * @note This API uses @ref k_spin_lock to protect the _kernel.threads
  * list which means creation of new threads and terminations of existing
@@ -688,7 +689,7 @@ extern void k_thread_foreach(k_thread_user_cb_t user_cb, void *user_data);
  * @param user_cb Pointer to the user callback function.
  * @param user_data Pointer to user data.
  *
- * @note CONFIG_THREAD_MONITOR must be set for this function
+ * @note @option{CONFIG_THREAD_MONITOR} must be set for this function
  * to be effective.
  * @note This API uses @ref k_spin_lock only when accessing the _kernel.threads
  * queue elements. It unlocks it during user callback function processing.
@@ -750,8 +751,8 @@ extern void k_thread_foreach_unlocked(
  *
  * @details
  * Indicates that the thread being created should inherit all kernel object
- * permissions from the thread that created it. No effect if CONFIG_USERSPACE
- * is not enabled.
+ * permissions from the thread that created it. No effect if
+ * @option{CONFIG_USERSPACE} is not enabled.
  */
 #define K_INHERIT_PERMS (BIT(3))
 
@@ -878,8 +879,8 @@ static inline void k_thread_resource_pool_assign(struct k_thread *thread,
  *
  * Some hardware may prevent inspection of a stack buffer currently in use.
  * If this API is called from supervisor mode, on the currently running thread,
- * on a platform which selects CONFIG_NO_UNUSED_STACK_INSPECTION, an error
- * will be generated.
+ * on a platform which selects @option{CONFIG_NO_UNUSED_STACK_INSPECTION}, an
+ * error will be generated.
  *
  * @param thread Thread to inspect stack information
  * @param unused_ptr Output parameter, filled in with the unused stack space
@@ -963,9 +964,10 @@ static inline int32_t k_msleep(int32_t ms)
  *
  * This function is unlikely to work as expected without kernel tuning.
  * In particular, because the lower bound on the duration of a sleep is
- * the duration of a tick, CONFIG_SYS_CLOCK_TICKS_PER_SEC must be adjusted
- * to achieve the resolution desired. The implications of doing this must
- * be understood before attempting to use k_usleep(). Use with caution.
+ * the duration of a tick, @option{CONFIG_SYS_CLOCK_TICKS_PER_SEC} must be
+ * adjusted to achieve the resolution desired. The implications of doing
+ * this must be understood before attempting to use k_usleep(). Use with
+ * caution.
  *
  * @param us Number of microseconds to sleep.
  *
@@ -1238,11 +1240,8 @@ __syscall void k_thread_priority_set(k_tid_t thread, int prio);
  * above this call, which is simply input to the priority selection
  * logic.
  *
- * @note
- *    @rst
- *    You should enable :option:`CONFIG_SCHED_DEADLINE` in your project
- *    configuration.
- *    @endrst
+ * @note You should enable @option{CONFIG_SCHED_DEADLINE} in your project
+ * configuration.
  *
  * @param thread A thread on which to set the deadline
  * @param deadline A time delta, in cycle units
@@ -1258,11 +1257,8 @@ __syscall void k_thread_deadline_set(k_tid_t thread, int deadline);
  * After this returns, the thread will no longer be schedulable on any
  * CPUs.  The thread must not be currently runnable.
  *
- * @note
- *    @rst
- *    You should enable :option:`CONFIG_SCHED_DEADLINE` in your project
- *    configuration.
- *    @endrst
+ * @note You should enable @option{CONFIG_SCHED_DEADLINE} in your project
+ * configuration.
  *
  * @param thread Thread to operate upon
  * @return Zero on success, otherwise error code
@@ -1275,11 +1271,8 @@ int k_thread_cpu_mask_clear(k_tid_t thread);
  * After this returns, the thread will be schedulable on any CPU.  The
  * thread must not be currently runnable.
  *
- * @note
- *    @rst
- *    You should enable :option:`CONFIG_SCHED_DEADLINE` in your project
- *    configuration.
- *    @endrst
+ * @note You should enable @option{CONFIG_SCHED_DEADLINE} in your project
+ * configuration.
  *
  * @param thread Thread to operate upon
  * @return Zero on success, otherwise error code
@@ -1291,11 +1284,8 @@ int k_thread_cpu_mask_enable_all(k_tid_t thread);
  *
  * The thread must not be currently runnable.
  *
- * @note
- *    @rst
- *    You should enable :option:`CONFIG_SCHED_DEADLINE` in your project
- *    configuration.
- *    @endrst
+ * @note You should enable @option{CONFIG_SCHED_DEADLINE} in your project
+ * configuration.
  *
  * @param thread Thread to operate upon
  * @param cpu CPU index
@@ -1308,11 +1298,8 @@ int k_thread_cpu_mask_enable(k_tid_t thread, int cpu);
  *
  * The thread must not be currently runnable.
  *
- * @note
- *    @rst
- *    You should enable :option:`CONFIG_SCHED_DEADLINE` in your project
- *    configuration.
- *    @endrst
+ * @note You should enable @option{CONFIG_SCHED_DEADLINE} in your project
+ * configuration.
  *
  * @param thread Thread to operate upon
  * @param cpu CPU index
@@ -1508,8 +1495,8 @@ __syscall void *k_thread_custom_data_get(void);
 /**
  * @brief Set current thread name
  *
- * Set the name of the thread to be used when THREAD_MONITOR is enabled for
- * tracing and debugging.
+ * Set the name of the thread to be used when @option{CONFIG_THREAD_MONITOR}
+ * is enabled for tracing and debugging.
  *
  * @param thread_id Thread to set name, or NULL to set the current thread
  * @param value Name string
@@ -2049,7 +2036,7 @@ static inline void *z_impl_k_timer_user_data_get(struct k_timer *timer)
  * @brief Get system uptime, in system ticks.
  *
  * This routine returns the elapsed time since the system booted, in
- * ticks (c.f. :option:`CONFIG_SYS_CLOCK_TICKS_PER_SEC`), which is the
+ * ticks (c.f. @option{CONFIG_SYS_CLOCK_TICKS_PER_SEC}), which is the
  * fundamental unit of resolution of kernel timekeeping.
  *
  * @return Current uptime in ticks.
@@ -2063,11 +2050,9 @@ __syscall int64_t k_uptime_ticks(void);
  * in milliseconds.
  *
  * @note
- *    @rst
  *    While this function returns time in milliseconds, it does
  *    not mean it has millisecond resolution. The actual resolution depends on
- *    :option:`CONFIG_SYS_CLOCK_TICKS_PER_SEC` config option.
- *    @endrst
+ *    @option{CONFIG_SYS_CLOCK_TICKS_PER_SEC} config option.
  *
  * @return Current uptime in milliseconds.
  */
@@ -2080,8 +2065,8 @@ static inline int64_t k_uptime_get(void)
  * @brief Enable clock always on in tickless kernel
  *
  * Deprecated.  This does nothing (it was always just a hint).  This
- * functionality has been migrated to the SYSTEM_CLOCK_SLOPPY_IDLE
- * kconfig.
+ * functionality has been migrated to the
+ * @option{CONFIG_SYSTEM_CLOCK_SLOPPY_IDLE} config option.
  *
  * @retval prev_status Previous status of always on flag
  */
@@ -2099,8 +2084,8 @@ __deprecated static inline int k_enable_sys_clock_always_on(void)
  * @brief Disable clock always on in tickless kernel
  *
  * Deprecated.  This does nothing (it was always just a hint).  This
- * functionality has been migrated to the SYS_CLOCK_SLOPPY_IDLE
- * kconfig.
+ * functionality has been migrated to the
+ * @option{CONFIG_SYSTEM_CLOCK_SLOPPY_IDLE} config option.
  */
 /* LCOV_EXCL_START */
 __deprecated static inline void k_disable_sys_clock_always_on(void)
@@ -2123,11 +2108,9 @@ __deprecated static inline void k_disable_sys_clock_always_on(void)
  * interrupt blocking and 64-bit math.
  *
  * @note
- *    @rst
  *    While this function returns time in milliseconds, it does
  *    not mean it has millisecond resolution. The actual resolution depends on
- *    :option:`CONFIG_SYS_CLOCK_TICKS_PER_SEC` config option
- *    @endrst
+ *    @option{CONFIG_SYS_CLOCK_TICKS_PER_SEC} config option
  *
  * @return The low 32 bits of the current uptime, in milliseconds.
  */
@@ -4624,6 +4607,8 @@ extern int k_mem_slab_init(struct k_mem_slab *slab, void *buffer,
  *
  * This routine allocates a memory block from a memory slab.
  *
+ * @note Can be called by ISRs, but @a timeout must be set to K_NO_WAIT.
+ *
  * @param slab Address of the memory slab.
  * @param mem Pointer to block address area.
  * @param timeout Non-negative waiting period to wait for operation to complete.
@@ -4714,6 +4699,8 @@ void k_heap_init(struct k_heap *h, void *mem, size_t bytes);
  * freed.  If the allocation cannot be performed by the expiration of
  * the timeout, NULL will be returned.
  *
+ * @note Can be called by ISRs, but @a timeout must be set to K_NO_WAIT.
+ *
  * @param h Heap from which to allocate
  * @param bytes Desired size of block to allocate
  * @param timeout How long to wait, or K_NO_WAIT
@@ -4763,7 +4750,7 @@ void k_heap_free(struct k_heap *h, void *mem);
  * If the pool is to be accessed outside the module where it is defined, it
  * can be declared via
  *
- * @note When CONFIG_MEM_POOL_HEAP_BACKEND is enabled, the k_mem_pool
+ * @note When @option{CONFIG_MEM_POOL_HEAP_BACKEND} is enabled, the k_mem_pool
  * API is implemented on top of a k_heap, which is a more general
  * purpose allocator which does not make the same promises about
  * splitting or alignment detailed above.  Blocks will be aligned only
@@ -4786,6 +4773,8 @@ void k_heap_free(struct k_heap *h, void *mem);
  * @brief Allocate memory from a memory pool.
  *
  * This routine allocates a memory block from a memory pool.
+ *
+ * @note Can be called by ISRs, but @a timeout must be set to K_NO_WAIT.
  *
  * @param pool Address of the memory pool.
  * @param block Pointer to block descriptor for the allocated memory.
@@ -5037,25 +5026,25 @@ struct k_poll_event {
 	};
 };
 
-#define K_POLL_EVENT_INITIALIZER(event_type, event_mode, event_obj) \
+#define K_POLL_EVENT_INITIALIZER(_event_type, _event_mode, _event_obj) \
 	{ \
 	.poller = NULL, \
-	.type = event_type, \
+	.type = _event_type, \
 	.state = K_POLL_STATE_NOT_READY, \
-	.mode = event_mode, \
+	.mode = _event_mode, \
 	.unused = 0, \
-	.obj = event_obj, \
+	.obj = _event_obj, \
 	}
 
-#define K_POLL_EVENT_STATIC_INITIALIZER(event_type, event_mode, event_obj, \
+#define K_POLL_EVENT_STATIC_INITIALIZER(_event_type, _event_mode, _event_obj, \
 					event_tag) \
 	{ \
 	.tag = event_tag, \
-	.type = event_type, \
+	.type = _event_type, \
 	.state = K_POLL_STATE_NOT_READY, \
-	.mode = event_mode, \
+	.mode = _event_mode, \
 	.unused = 0, \
-	.obj = event_obj, \
+	.obj = _event_obj, \
 	}
 
 /**
